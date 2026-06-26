@@ -7,9 +7,10 @@ backend/src/main/java/com/ptagent
   App.java                 应用启动入口
   common/                  JSON、密码哈希等基础工具
   domain/                  领域模型和状态枚举
-  repository/              内存数据仓库与初始化数据
+  repository/              Repository 接口、内存数据仓库与初始化数据
   service/                 业务服务层
   web/                     HTTP API 路由与静态资源托管
+backend/src/test/java/      零外部依赖的服务层测试入口
 public/                    Web GUI
 scripts/                   构建与运行脚本
 docs/                      项目文档
@@ -20,7 +21,7 @@ docs/                      项目文档
 | 层 | 职责 |
 |---|---|
 | `domain` | 用户、教师资料、简历、需求、申请、订单、授课记录、评价等核心对象 |
-| `repository` | 当前使用内存 Map 保存数据，集中负责初始化示例数据 |
+| `repository` | 通过 `Repository` 接口隔离数据访问；当前实现使用内存 Map 保存数据并初始化示例数据 |
 | `service` | 登录、需求筛选排序、申请审核、课程记录、评价回访等业务规则 |
 | `web` | REST API 分发、JSON 响应、静态文件访问 |
 | `public` | 本地 Web GUI，面向教师、普通管理员、最高管理员 |

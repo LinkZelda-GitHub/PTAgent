@@ -5,16 +5,16 @@ import com.ptagent.common.Passwords;
 import com.ptagent.domain.RoleType;
 import com.ptagent.domain.TeacherProfile;
 import com.ptagent.domain.User;
-import com.ptagent.repository.AppRepository;
+import com.ptagent.repository.Repository;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class AuthService {
-    private final AppRepository repository;
+    private final Repository repository;
 
-    public AuthService(AppRepository repository) {
+    public AuthService(Repository repository) {
         this.repository = repository;
     }
 

@@ -14,6 +14,12 @@
 http://localhost:8080
 ```
 
+运行服务层测试：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
+```
+
 演示账号：
 
 | 角色 | 用户名 | 密码 |
@@ -30,6 +36,7 @@ http://localhost:8080
 - 教师端需求广场，支持科目、年级、区域、资质标签筛选，以及最新、距离、薪酬、匹配度排序
 - 教师申请接单，最高管理员审核，通过后生成课程订单与通知
 - 课程订单、授课记录、家长回访评价
+- `Repository` 接口抽象和核心服务层测试，便于后续替换 MySQL 数据层
 - 本地 GUI、REST API、运行/依赖/架构/API 文档
 
 ## 文档

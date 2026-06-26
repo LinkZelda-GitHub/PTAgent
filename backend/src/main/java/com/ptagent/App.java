@@ -1,6 +1,7 @@
 package com.ptagent;
 
 import com.ptagent.repository.AppRepository;
+import com.ptagent.repository.Repository;
 import com.ptagent.web.ApiRouter;
 import com.ptagent.web.StaticFileHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -13,7 +14,7 @@ import java.util.concurrent.Executors;
 public class App {
     public static void main(String[] args) throws IOException, InterruptedException {
         int port = port(args);
-        AppRepository repository = new AppRepository();
+        Repository repository = new AppRepository();
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/api", new ApiRouter(repository));
         server.createContext("/", new StaticFileHandler("public"));

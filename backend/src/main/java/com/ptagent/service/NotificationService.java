@@ -1,14 +1,14 @@
 package com.ptagent.service;
 
-import com.ptagent.repository.AppRepository;
+import com.ptagent.repository.Repository;
 
 import java.util.List;
 import java.util.Map;
 
 public class NotificationService {
-    private final AppRepository repository;
+    private final Repository repository;
 
-    public NotificationService(AppRepository repository) {
+    public NotificationService(Repository repository) {
         this.repository = repository;
     }
 

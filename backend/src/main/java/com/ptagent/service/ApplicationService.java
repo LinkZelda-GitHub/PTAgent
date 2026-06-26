@@ -7,7 +7,7 @@ import com.ptagent.domain.Demand;
 import com.ptagent.domain.DemandApplication;
 import com.ptagent.domain.DemandStatus;
 import com.ptagent.domain.TeacherProfile;
-import com.ptagent.repository.AppRepository;
+import com.ptagent.repository.Repository;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -15,9 +15,9 @@ import java.util.List;
 import java.util.Map;
 
 public class ApplicationService {
-    private final AppRepository repository;
+    private final Repository repository;
 
-    public ApplicationService(AppRepository repository) {
+    public ApplicationService(Repository repository) {
         this.repository = repository;
     }
 

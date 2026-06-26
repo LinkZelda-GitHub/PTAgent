@@ -45,6 +45,20 @@ http://localhost:8080
 build\classes
 ```
 
+## 运行测试
+
+当前测试同样保持零外部依赖，会先编译主代码，再编译并运行服务层测试：
+
+```powershell
+.\scripts\test.ps1
+```
+
+如果 PowerShell 提示脚本执行策略限制，可使用：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
+```
+
 ## 演示账号
 
 | 角色 | 用户名 | 密码 |

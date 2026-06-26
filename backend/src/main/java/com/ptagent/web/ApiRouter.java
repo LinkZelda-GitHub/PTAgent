@@ -1,7 +1,7 @@
 package com.ptagent.web;
 
 import com.ptagent.common.Json;
-import com.ptagent.repository.AppRepository;
+import com.ptagent.repository.Repository;
 import com.ptagent.service.ApplicationService;
 import com.ptagent.service.AuthService;
 import com.ptagent.service.CourseService;
@@ -31,7 +31,7 @@ public class ApiRouter implements HttpHandler {
     private final DashboardService dashboardService;
     private final NotificationService notificationService;
 
-    public ApiRouter(AppRepository repository) {
+    public ApiRouter(Repository repository) {
         this.authService = new AuthService(repository);
         this.teacherService = new TeacherService(repository);
         this.demandService = new DemandService(repository);

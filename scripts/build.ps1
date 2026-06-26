@@ -13,4 +13,8 @@ if (-not $Files) {
 }
 
 javac -encoding UTF-8 -d $BuildDir $Files
+if ($LASTEXITCODE -ne 0) {
+  throw "Build failed."
+}
+
 Write-Host "Build completed: $BuildDir"

@@ -3,7 +3,7 @@ package com.ptagent.service;
 import com.ptagent.common.Json;
 import com.ptagent.domain.CourseOrder;
 import com.ptagent.domain.TeachingRecord;
-import com.ptagent.repository.AppRepository;
+import com.ptagent.repository.Repository;
 
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -11,9 +11,9 @@ import java.util.List;
 import java.util.Map;
 
 public class CourseService {
-    private final AppRepository repository;
+    private final Repository repository;
 
-    public CourseService(AppRepository repository) {
+    public CourseService(Repository repository) {
         this.repository = repository;
     }
 

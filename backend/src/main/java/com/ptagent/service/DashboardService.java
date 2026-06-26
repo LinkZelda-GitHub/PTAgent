@@ -4,16 +4,16 @@ import com.ptagent.common.Json;
 import com.ptagent.domain.ApplicationStatus;
 import com.ptagent.domain.DemandStatus;
 import com.ptagent.domain.RoleType;
-import com.ptagent.repository.AppRepository;
+import com.ptagent.repository.Repository;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public class DashboardService {
-    private final AppRepository repository;
+    private final Repository repository;
 
-    public DashboardService(AppRepository repository) {
+    public DashboardService(Repository repository) {
         this.repository = repository;
     }
 

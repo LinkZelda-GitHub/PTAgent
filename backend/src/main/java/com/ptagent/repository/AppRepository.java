@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class AppRepository {
+public class AppRepository implements Repository {
     private final Map<Long, User> users = new LinkedHashMap<>();
     private final Map<Long, TeacherProfile> teacherProfiles = new LinkedHashMap<>();
     private final Map<Long, TeacherResume> teacherResumes = new LinkedHashMap<>();

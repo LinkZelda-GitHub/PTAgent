@@ -3,16 +3,16 @@ package com.ptagent.service;
 import com.ptagent.common.Json;
 import com.ptagent.domain.CourseOrder;
 import com.ptagent.domain.Feedback;
-import com.ptagent.repository.AppRepository;
+import com.ptagent.repository.Repository;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
 public class FeedbackService {
-    private final AppRepository repository;
+    private final Repository repository;
 
-    public FeedbackService(AppRepository repository) {
+    public FeedbackService(Repository repository) {
         this.repository = repository;
     }
 

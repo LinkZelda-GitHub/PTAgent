@@ -5,16 +5,16 @@ import com.ptagent.domain.RoleType;
 import com.ptagent.domain.TeacherProfile;
 import com.ptagent.domain.TeacherResume;
 import com.ptagent.domain.User;
-import com.ptagent.repository.AppRepository;
+import com.ptagent.repository.Repository;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
 public class TeacherService {
-    private final AppRepository repository;
+    private final Repository repository;
 
-    public TeacherService(AppRepository repository) {
+    public TeacherService(Repository repository) {
         this.repository = repository;
     }
 

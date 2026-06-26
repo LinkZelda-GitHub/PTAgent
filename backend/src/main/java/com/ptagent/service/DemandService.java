@@ -4,7 +4,7 @@ import com.ptagent.common.Json;
 import com.ptagent.domain.Demand;
 import com.ptagent.domain.DemandStatus;
 import com.ptagent.domain.TeacherProfile;
-import com.ptagent.repository.AppRepository;
+import com.ptagent.repository.Repository;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -16,9 +16,9 @@ public class DemandService {
     private static final double DEFAULT_TEACHER_LAT = 23.1291;
     private static final double DEFAULT_TEACHER_LON = 113.2644;
 
-    private final AppRepository repository;
+    private final Repository repository;
 
-    public DemandService(AppRepository repository) {
+    public DemandService(Repository repository) {
         this.repository = repository;
     }
 

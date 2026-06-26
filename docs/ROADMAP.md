@@ -282,6 +282,14 @@ components/
 4. 接入 MySQL，并用 seed 脚本替代硬编码演示数据。
 5. 前端组件化，保留当前 GUI 的视觉方向和交互能力。
 
+### 当前迭代记录
+
+2026-06-26：
+
+- 已抽象 `Repository` 接口，服务层依赖接口而不是内存实现。
+- 已为 `DemandService` 和 `ApplicationService` 增加零外部依赖服务层测试。
+- 已增加 `scripts/test.ps1`，用于本地编译并运行核心服务测试。
+
 不建议过早投入：
 
 - 复杂智能推荐模型
