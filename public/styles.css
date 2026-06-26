@@ -1,60 +1,60 @@
 :root {
   color-scheme: light;
-  --page: #fff4eb;
-  --page-2: #fffaf5;
-  --canvas-top: #f9caa5;
-  --canvas-mid: #f2ad7a;
-  --canvas-bottom: #ffddbf;
-  --on-canvas: #543427;
-  --on-canvas-muted: rgba(84, 52, 39, 0.68);
-  --ink: #2d2927;
-  --ink-strong: #181411;
-  --muted: #786a62;
-  --soft: #aa9b91;
+  --page: #fffaf7;
+  --page-2: #f5fbff;
+  --canvas-top: #fff6ef;
+  --canvas-mid: #ffe5d2;
+  --canvas-bottom: #fffaf4;
+  --on-canvas: #332d29;
+  --on-canvas-muted: rgba(51, 45, 41, 0.66);
+  --ink: #292725;
+  --ink-strong: #151311;
+  --muted: #736c67;
+  --soft: #a49b95;
   --white: #ffffff;
   --paper: rgba(255, 255, 255, 0.92);
-  --paper-soft: rgba(255, 250, 245, 0.78);
-  --field: #fff8f1;
+  --paper-soft: rgba(255, 252, 249, 0.86);
+  --field: #fffdfb;
   --line: rgba(29, 33, 42, 0.1);
   --line-strong: rgba(29, 33, 42, 0.16);
-  --coral: #d9855d;
-  --coral-dark: #ad6343;
-  --orange: #eda66d;
-  --amber: #f0c77a;
-  --teal: #5db8aa;
-  --blue: #6f93c8;
+  --coral: #ee986b;
+  --coral-dark: #c66a42;
+  --orange: #f4b27c;
+  --amber: #f2d28a;
+  --teal: #52b8aa;
+  --blue: #6e9ed8;
   --navy: #273044;
-  --green: #6fa878;
+  --green: #68ae7d;
   --danger: #b9635d;
-  --matte: #f2a16c;
-  --matte-hover: #dc8754;
-  --matte-soft: #fff2e7;
-  --shadow-soft: 0 12px 28px rgba(142, 91, 63, 0.1);
-  --shadow-card: 0 18px 42px rgba(117, 70, 48, 0.14);
-  --shadow-panel: -18px 0 38px rgba(93, 62, 45, 0.09);
-  --ring: 0 0 0 4px rgba(217, 133, 93, 0.16);
+  --matte: #f3aa79;
+  --matte-hover: #e9915e;
+  --matte-soft: #fff4ec;
+  --shadow-soft: 0 12px 28px rgba(93, 75, 65, 0.08);
+  --shadow-card: 0 18px 42px rgba(93, 75, 65, 0.1);
+  --shadow-panel: -18px 0 38px rgba(70, 76, 86, 0.07);
+  --ring: 0 0 0 4px rgba(238, 152, 107, 0.16);
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #1a1515;
-  --page-2: #241919;
-  --canvas-top: #4b3128;
-  --canvas-mid: #6e4330;
-  --canvas-bottom: #835039;
-  --on-canvas: #fff1e8;
-  --on-canvas-muted: rgba(255, 241, 232, 0.72);
-  --ink: #f8f1ed;
+  --page: #141820;
+  --page-2: #1b2330;
+  --canvas-top: #202631;
+  --canvas-mid: #29313d;
+  --canvas-bottom: #1d242e;
+  --on-canvas: #f5f7fb;
+  --on-canvas-muted: rgba(229, 235, 244, 0.72);
+  --ink: #eef2f7;
   --ink-strong: #ffffff;
-  --muted: #cbbdb7;
-  --soft: #a99791;
-  --white: #211b1b;
-  --paper: rgba(35, 29, 29, 0.96);
-  --paper-soft: rgba(50, 38, 34, 0.78);
-  --field: #302523;
+  --muted: #b8c0cc;
+  --soft: #8f99a8;
+  --white: #1b2028;
+  --paper: rgba(30, 36, 45, 0.96);
+  --paper-soft: rgba(37, 45, 56, 0.82);
+  --field: #272e39;
   --line: rgba(255, 255, 255, 0.11);
   --line-strong: rgba(255, 255, 255, 0.18);
-  --navy: #f8f1ed;
+  --navy: #eef2f7;
   --shadow-soft: 0 16px 38px rgba(0, 0, 0, 0.22);
   --shadow-card: 0 24px 58px rgba(0, 0, 0, 0.34);
   --shadow-panel: -20px 0 46px rgba(0, 0, 0, 0.18);
@@ -78,8 +78,8 @@ body {
   min-height: 100%;
   color: var(--ink);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.8), transparent 34%),
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0 1px, transparent 1px 22px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.88), transparent 34%),
+    repeating-linear-gradient(135deg, rgba(110, 158, 216, 0.035) 0 1px, transparent 1px 22px),
     linear-gradient(135deg, var(--page), var(--page-2));
   font-family: "Avenir Next", "Trebuchet MS", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 15px;
@@ -116,7 +116,7 @@ textarea:disabled {
   border-radius: 8px;
   overflow: hidden;
   background: linear-gradient(180deg, var(--canvas-top), var(--canvas-mid) 45%, var(--canvas-bottom));
-  box-shadow: 0 24px 64px rgba(129, 81, 55, 0.16);
+  box-shadow: 0 24px 64px rgba(93, 75, 65, 0.11);
   transition: grid-template-columns 0.22s ease;
 }
 
@@ -144,12 +144,12 @@ body.auth-pending .app-shell {
   min-height: 100%;
   padding: 18px 14px;
   color: #111111;
-  background: linear-gradient(180deg, rgba(255, 250, 245, 0.9), rgba(255, 235, 219, 0.78));
-  border-right: 1px solid rgba(129, 81, 55, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 248, 243, 0.86));
+  border-right: 1px solid rgba(93, 75, 65, 0.09);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 16px;
-  box-shadow: 10px 0 32px rgba(129, 81, 55, 0.08);
+  box-shadow: 10px 0 32px rgba(93, 75, 65, 0.06);
 }
 
 .sidebar-scrim {
@@ -501,15 +501,15 @@ body.sidebar-collapsed .sidebar-stats {
 }
 
 .focus-orange {
-  background: rgba(255, 247, 239, 0.52);
+  background: rgba(255, 251, 247, 0.82);
 }
 
 .focus-blue {
-  background: rgba(242, 248, 255, 0.5);
+  background: rgba(237, 247, 255, 0.78);
 }
 
 .focus-green {
-  background: rgba(241, 255, 250, 0.48);
+  background: rgba(237, 251, 246, 0.76);
 }
 
 .view {
@@ -562,9 +562,9 @@ body.sidebar-collapsed .sidebar-stats {
   min-height: 520px;
   border-radius: 8px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 246, 239, 0.78)),
-    repeating-linear-gradient(0deg, transparent 0 34px, rgba(217, 133, 93, 0.08) 34px 35px),
-    repeating-linear-gradient(90deg, transparent 0 34px, rgba(72, 201, 189, 0.08) 34px 35px);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(246, 251, 255, 0.84)),
+    repeating-linear-gradient(0deg, transparent 0 34px, rgba(238, 152, 107, 0.07) 34px 35px),
+    repeating-linear-gradient(90deg, transparent 0 34px, rgba(82, 184, 170, 0.08) 34px 35px);
   box-shadow: var(--shadow-card);
   overflow: hidden;
 }
@@ -1083,7 +1083,7 @@ th {
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
-  background: rgba(255, 244, 238, 0.86);
+  background: rgba(255, 248, 243, 0.88);
 }
 
 td {
@@ -1369,7 +1369,7 @@ menu {
     width: min(86vw, 310px);
     z-index: 50;
     transform: translateX(0);
-    background: linear-gradient(180deg, rgba(255, 250, 245, 0.98), rgba(255, 235, 219, 0.94));
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 241, 0.96));
     box-shadow: 20px 0 56px rgba(89, 55, 38, 0.2);
     transition: transform 0.24s ease;
   }
@@ -1438,7 +1438,7 @@ menu {
     z-index: 30;
     margin: -24px calc(clamp(16px, 4vw, 28px) * -1) 20px;
     padding: 14px clamp(16px, 4vw, 28px);
-    background: rgba(248, 192, 151, 0.82);
+    background: rgba(255, 239, 227, 0.9);
     backdrop-filter: blur(14px);
   }
 

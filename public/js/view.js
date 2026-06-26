@@ -1,5 +1,7 @@
 import { state } from "./state.js";
 
+const THEME_KEY = "ptagent-theme-v2";
+
 export const $ = (selector) => document.querySelector(selector);
 
 export function html(value) {
@@ -20,17 +22,17 @@ export function toast(message) {
 }
 
 export function preferredTheme() {
-  const saved = localStorage.getItem("ptagent-theme");
+  const saved = localStorage.getItem(THEME_KEY);
   if (saved === "light" || saved === "dark") {
     return saved;
   }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return "light";
 }
 
 export function applyTheme(theme) {
   state.theme = theme;
   document.documentElement.dataset.theme = theme;
-  localStorage.setItem("ptagent-theme", theme);
+  localStorage.setItem(THEME_KEY, theme);
   const icon = $("#themeIcon");
   if (icon) {
     icon.textContent = theme === "dark" ? "☀" : "☾";
