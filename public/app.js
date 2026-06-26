@@ -3,6 +3,8 @@ const state = {
   profile: null,
   bootstrap: null,
   currentTab: "plaza",
+  theme: "light",
+  sidebarCollapsed: false,
   demands: [],
   allDemands: [],
   applications: [],
@@ -25,6 +27,64 @@ const tabs = [
 ];
 
 const $ = (selector) => document.querySelector(selector);
+
+function preferredTheme() {
+  const saved = localStorage.getItem("ptagent-theme");
+  if (saved === "light" || saved === "dark") {
+    return saved;
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+  state.theme = theme;
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem("ptagent-theme", theme);
+  const icon = $("#themeIcon");
+  if (icon) {
+    icon.textContent = theme === "dark" ? "☀" : "☾";
+  }
+}
+
+function preferredSidebar() {
+  if (isMobileLayout()) {
+    return true;
+  }
+  return localStorage.getItem("ptagent-sidebar-collapsed") === "1";
+}
+
+function isMobileLayout() {
+  return window.matchMedia("(max-width: 1050px)").matches;
+}
+
+function applySidebar(collapsed, options = {}) {
+  state.sidebarCollapsed = collapsed;
+  document.body.classList.toggle("sidebar-collapsed", collapsed);
+  if (options.persist !== false && !isMobileLayout()) {
+    localStorage.setItem("ptagent-sidebar-collapsed", collapsed ? "1" : "0");
+  }
+  const toggle = $("#sidebarToggle");
+  if (toggle) {
+    const label = collapsed ? "展开导航" : "收起导航";
+    toggle.title = label;
+    toggle.setAttribute("aria-label", label);
+    toggle.querySelector("span").textContent = collapsed ? "›" : "‹";
+  }
+  const mobileToggle = $("#mobileSidebarToggle");
+  if (mobileToggle) {
+    const label = collapsed ? "打开导航" : "关闭导航";
+    mobileToggle.title = label;
+    mobileToggle.setAttribute("aria-label", label);
+  }
+}
+
+function onMediaQueryChange(query, handler) {
+  if (query.addEventListener) {
+    query.addEventListener("change", handler);
+  } else if (query.addListener) {
+    query.addListener(handler);
+  }
+}
 
 async function api(path, options = {}) {
   const response = await fetch(`/api${path}`, {
@@ -168,8 +228,8 @@ function renderNav() {
   $("#navList").innerHTML = allowed.map((tab) => `
     <button type="button" class="nav-btn ${tab.id === state.currentTab ? "is-active" : ""}"
       data-action="nav" data-tab="${html(tab.id)}">
-      <span aria-hidden="true">${html(tab.icon)}</span>
-      ${html(tab.label)}
+      <span class="nav-icon" aria-hidden="true">${html(tab.icon)}</span>
+      <span class="nav-label">${html(tab.label)}</span>
     </button>
   `).join("");
   document.querySelectorAll(".view").forEach((view) => view.classList.remove("is-active"));
@@ -448,6 +508,9 @@ async function handleClick(event) {
     }
     if (action === "nav") {
       state.currentTab = button.dataset.tab;
+      if (isMobileLayout()) {
+        applySidebar(true, { persist: false });
+      }
       render();
     }
     if (action === "open-apply") {
@@ -496,6 +559,26 @@ async function handleClick(event) {
 
 function attachEvents() {
   document.addEventListener("click", handleClick);
+
+  $("#themeToggle").addEventListener("click", () => {
+    applyTheme(state.theme === "dark" ? "light" : "dark");
+  });
+
+  $("#sidebarToggle").addEventListener("click", () => {
+    applySidebar(!state.sidebarCollapsed);
+  });
+
+  $("#mobileSidebarToggle").addEventListener("click", () => {
+    applySidebar(!state.sidebarCollapsed, { persist: false });
+  });
+
+  $("#sidebarScrim").addEventListener("click", () => {
+    applySidebar(true, { persist: false });
+  });
+
+  onMediaQueryChange(window.matchMedia("(max-width: 1050px)"), () => {
+    applySidebar(preferredSidebar(), { persist: false });
+  });
 
   $("#loginForm").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -603,6 +686,8 @@ function attachEvents() {
 }
 
 async function init() {
+  applyTheme(preferredTheme());
+  applySidebar(preferredSidebar(), { persist: false });
   attachEvents();
   $("#recordForm").lessonDate.value = new Date().toISOString().slice(0, 10);
   await loadBootstrap();

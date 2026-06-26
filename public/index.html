@@ -11,10 +11,13 @@
     <aside class="sidebar" aria-label="主导航">
       <div class="brand">
         <div class="brand-mark">PT</div>
-        <div>
+        <div class="brand-copy">
           <strong>PTAgent</strong>
           <span>家教资源整合平台</span>
         </div>
+        <button type="button" class="sidebar-toggle icon-btn" id="sidebarToggle" title="收起侧边栏" aria-label="收起侧边栏">
+          <span aria-hidden="true">‹</span>
+        </button>
       </div>
 
       <form class="login-form" id="loginForm">
@@ -36,17 +39,41 @@
 
       <nav class="nav-list" id="navList"></nav>
     </aside>
+    <div class="sidebar-scrim" id="sidebarScrim" aria-hidden="true"></div>
 
     <main class="main-content">
       <header class="topbar">
-        <div>
+        <button type="button" class="mobile-menu-toggle icon-btn" id="mobileSidebarToggle" title="打开导航" aria-label="打开导航">
+          <span aria-hidden="true">☰</span>
+        </button>
+        <div class="topbar-title">
           <p class="eyebrow">本地演示环境</p>
           <h1 id="pageTitle">需求广场</h1>
         </div>
-        <div class="current-user" id="currentUser"></div>
+        <div class="topbar-actions">
+          <button type="button" class="theme-toggle icon-btn" id="themeToggle" title="切换明暗模式" aria-label="切换明暗模式">
+            <span id="themeIcon" aria-hidden="true">☾</span>
+          </button>
+          <div class="current-user" id="currentUser"></div>
+        </div>
       </header>
 
       <section class="stats-grid" id="statsGrid" aria-label="关键指标"></section>
+
+      <section class="focus-strip" aria-label="业务看板">
+        <article class="focus-card focus-orange">
+          <span>撮合效率</span>
+          <strong>优先处理高匹配申请</strong>
+        </article>
+        <article class="focus-card focus-blue">
+          <span>教师供给</span>
+          <strong>按科目与区域快速筛选</strong>
+        </article>
+        <article class="focus-card focus-green">
+          <span>课后质量</span>
+          <strong>持续沉淀评价与记录</strong>
+        </article>
+      </section>
 
       <section class="notifications" id="notifications"></section>
 
