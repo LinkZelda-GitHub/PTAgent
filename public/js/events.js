@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { loadBootstrap, loadDemands, login, persistFilters, refreshAll } from "./data.js";
+import { clearSession, loadBootstrap, loadDemands, login, logout, persistFilters, refreshAll } from "./data.js";
 import { clearMapConfig, fillMapConfigForm, saveMapConfig } from "./map.js";
 import { render, renderPlaza } from "./render.js";
 import { filterIds, state, tabs } from "./state.js";
@@ -31,6 +31,11 @@ async function handleClick(event) {
       });
       toast(`已登录：${state.user.roleLabel}`);
     }
+    if (action === "logout") {
+      await withButtonPending(button, logout);
+      render();
+      toast("已安全退出");
+    }
     if (action === "nav") {
       const tab = tabs.find((item) => item.id === button.dataset.tab);
       if (!tab || (state.user && !tab.roles.includes(state.user.role))) {
@@ -51,7 +56,7 @@ async function handleClick(event) {
     }
     if (action === "close-demand") {
       await withButtonPending(button, async () => {
-        await api(`/demands/${button.dataset.id}/close`, { method: "POST", body: {} });
+        await api(`/demands/${button.dataset.id}/close`, { method: "POST", body: { adminId: state.user.id } });
         await refreshAll();
       });
       toast("需求已关闭");
@@ -72,7 +77,7 @@ async function handleClick(event) {
       await withButtonPending(button, async () => {
         await api(`/teachers/${button.dataset.id}/enabled`, {
           method: "POST",
-          body: { enabled: button.dataset.enabled === "true" }
+          body: { enabled: button.dataset.enabled === "true", adminId: state.user.id }
         });
         await refreshAll();
       });
@@ -83,7 +88,7 @@ async function handleClick(event) {
       await withButtonPending(button, async () => {
         await api(`/resumes/${button.dataset.id}/status`, {
           method: "POST",
-          body: { status: Number(button.dataset.status) }
+          body: { status: Number(button.dataset.status), adminId: state.user.id }
         });
         await refreshAll();
       });
@@ -129,13 +134,15 @@ export function attachEvents() {
     applySidebar(true, { persist: false });
   });
 
-  onMediaQueryChange(window.matchMedia("(max-width: 1050px)"), () => {
+  onMediaQueryChange(window.matchMedia("(max-width: 980px)"), () => {
     applySidebar(preferredSidebar(), { persist: false });
   });
 
   $("#loginForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
+    const errorBox = $("#loginError");
+    errorBox.hidden = true;
     try {
       await withFormPending(form, async () => {
         await login(form.username.value, form.password.value);
@@ -143,8 +150,17 @@ export function attachEvents() {
       render();
       toast(`已登录：${state.user.roleLabel}`);
     } catch (error) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
       toast(error.message);
     }
+  });
+
+  window.addEventListener("ptagent:auth-expired", () => {
+    if (!state.user) return;
+    clearSession();
+    render();
+    toast("登录状态已失效，请重新登录");
   });
 
   filterIds.forEach((id) => {
@@ -233,9 +249,11 @@ export function attachEvents() {
   $("#resumeForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
+    const body = formObject(form);
+    body.actorId = state.user.id;
     try {
       await withFormPending(form, async () => {
-        await api("/resumes", { method: "POST", body: formObject(form) });
+        await api("/resumes", { method: "POST", body });
         await refreshAll();
       });
       toast("简历已投递");
@@ -249,6 +267,7 @@ export function attachEvents() {
     event.preventDefault();
     const form = event.currentTarget;
     const body = formObject(form);
+    body.teacherId = state.user.id;
     try {
       await withFormPending(form, async () => {
         await api(`/orders/${body.orderId}/records`, { method: "POST", body });

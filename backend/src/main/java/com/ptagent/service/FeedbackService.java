@@ -13,9 +13,11 @@ import java.util.Map;
 
 public class FeedbackService {
     private final Repository repository;
+    private final AccessGuard accessGuard;
 
     public FeedbackService(Repository repository) {
         this.repository = repository;
+        this.accessGuard = new AccessGuard(repository);
     }
 
     public List<Map<String, Object>> listFeedbacks() {
@@ -27,6 +29,8 @@ public class FeedbackService {
 
     public Map<String, Object> createFeedback(Map<String, Object> body) {
         long orderId = Json.longValue(body, "orderId", 0);
+        long adminId = Json.longValue(body, "submitAdminId", 0);
+        accessGuard.requireAdmin(adminId);
         int score = (int) Json.longValue(body, "ratingScore", 5);
         if (score < 1 || score > 5) {
             throw ApiException.badRequest(ErrorCode.FEEDBACK_INVALID_SCORE, "评分必须在1-5之间");
@@ -34,7 +38,9 @@ public class FeedbackService {
         repository.findOrder(orderId).orElseThrow(() -> ApiException.notFound(ErrorCode.ORDER_NOT_FOUND, "课程订单不存在"));
         Feedback feedback = repository.createFeedback(orderId, score, Json.str(body, "commentText"),
                 (int) Json.longValue(body, "feedbackSource", 1),
-                Json.longValue(body, "submitAdminId", 0));
+                adminId);
+        repository.createAuditLog(adminId, "FEEDBACK_CREATE", "ORDER", orderId,
+                "feedbackId=" + feedback.id);
         return toMap(feedback);
     }
 

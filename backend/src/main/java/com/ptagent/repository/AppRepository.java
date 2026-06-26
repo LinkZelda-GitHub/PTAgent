@@ -2,6 +2,7 @@ package com.ptagent.repository;
 
 import com.ptagent.common.Passwords;
 import com.ptagent.domain.ApplicationStatus;
+import com.ptagent.domain.AuditLog;
 import com.ptagent.domain.CourseOrder;
 import com.ptagent.domain.Demand;
 import com.ptagent.domain.DemandApplication;
@@ -35,6 +36,7 @@ public class AppRepository implements Repository {
     private final Map<Long, TeachingRecord> teachingRecords = new LinkedHashMap<>();
     private final Map<Long, Feedback> feedbacks = new LinkedHashMap<>();
     private final Map<Long, Notification> notifications = new LinkedHashMap<>();
+    private final Map<Long, AuditLog> auditLogs = new LinkedHashMap<>();
 
     private final AtomicLong userIds = new AtomicLong(100);
     private final AtomicLong resumeIds = new AtomicLong(200);
@@ -44,6 +46,7 @@ public class AppRepository implements Repository {
     private final AtomicLong recordIds = new AtomicLong(600);
     private final AtomicLong feedbackIds = new AtomicLong(700);
     private final AtomicLong notificationIds = new AtomicLong(800);
+    private final AtomicLong auditLogIds = new AtomicLong(900);
 
     public AppRepository() {
         seed();
@@ -228,6 +231,23 @@ public class AppRepository implements Repository {
                 .filter(notification -> notification.userId == userId)
                 .sorted(Comparator.comparing((Notification n) -> n.createTime).reversed())
                 .toList();
+    }
+
+    public synchronized AuditLog createAuditLog(long actorId, String action, String targetType, long targetId, String detail) {
+        AuditLog auditLog = new AuditLog();
+        auditLog.id = auditLogIds.getAndIncrement();
+        auditLog.actorId = actorId;
+        auditLog.actorRole = findUser(actorId).map(user -> user.role.name()).orElse("UNKNOWN");
+        auditLog.action = action;
+        auditLog.targetType = targetType;
+        auditLog.targetId = targetId;
+        auditLog.detail = detail;
+        auditLogs.put(auditLog.id, auditLog);
+        return auditLog;
+    }
+
+    public synchronized List<AuditLog> allAuditLogs() {
+        return new ArrayList<>(auditLogs.values());
     }
 
     private void recalculateTeacherRating(long orderId) {

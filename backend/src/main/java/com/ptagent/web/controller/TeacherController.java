@@ -25,7 +25,8 @@ public class TeacherController implements ApiController {
         if (request.path().size() == 3 && "teachers".equals(request.path().get(0))
                 && "enabled".equals(request.path().get(2)) && !request.method("GET")) {
             Response.json(exchange, 200, teacherService.setEnabled(request.pathId(1),
-                    Json.bool(request.body(), "enabled", true)));
+                    Json.bool(request.body(), "enabled", true),
+                    Json.longValue(request.body(), "adminId", 0)));
             return true;
         }
         if (request.path().size() == 3 && "teachers".equals(request.path().get(0))
@@ -44,7 +45,8 @@ public class TeacherController implements ApiController {
         if (request.path().size() == 3 && "resumes".equals(request.path().get(0))
                 && "status".equals(request.path().get(2)) && !request.method("GET")) {
             Response.json(exchange, 200, teacherService.updateResumeStatus(request.pathId(1),
-                    (int) Json.longValue(request.body(), "status", 1)));
+                    (int) Json.longValue(request.body(), "status", 1),
+                    Json.longValue(request.body(), "adminId", 0)));
             return true;
         }
         return false;

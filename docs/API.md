@@ -25,6 +25,9 @@
 | 错误码 | 说明 |
 |---|---|
 | `AUTH_INVALID_PASSWORD` | 密码不正确 |
+| `AUTH_REQUIRED` | 请求未携带登录令牌 |
+| `AUTH_SESSION_INVALID` | 登录令牌不存在、已退出或已过期 |
+| `ACCESS_DENIED` | 当前操作者没有权限执行该操作 |
 | `DEMAND_NOT_FOUND` | 需求不存在 |
 | `APPLICATION_DUPLICATED` | 重复申请同一需求 |
 | `VALIDATION_ERROR` | 请求参数不符合要求 |
@@ -56,11 +59,52 @@
 }
 ```
 
+## 权限与审计
+
+当前 MVP 使用服务端内存会话。登录成功后返回 12 小时有效的令牌；除 `/api`、`/api/bootstrap`、登录和教师注册外，请求都需要携带：
+
+```http
+Authorization: Bearer <token>
+```
+
+写操作仍通过请求体中的 `adminId`、`teacherId`、`actorId` 或 `submitAdminId` 表示领域操作者，并由服务端校验账号状态和角色。迁移 Spring Security 时应改为直接从认证上下文取得操作者 ID。
+
+| 场景 | 权限要求 |
+|---|---|
+| 发布/关闭需求、导入 XLSX、录入评价 | `ADMIN` 或 `SUPER_ADMIN` |
+| 审核接单申请、启用/禁用教师 | `SUPER_ADMIN` |
+| 申请接单、提交授课记录 | `TEACHER`，授课记录必须由订单对应教师提交 |
+| 更新教师资料、提交简历 | 本人或管理员 |
+| 查看审计日志 | `ADMIN` 或 `SUPER_ADMIN` |
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/audit-logs?actorId=100` | 查看关键操作审计日志 |
+
+审计日志响应示例：
+
+```json
+[
+  {
+    "id": 900,
+    "actorId": 100,
+    "actorRole": "SUPER_ADMIN",
+    "action": "APPLICATION_REVIEW",
+    "targetType": "APPLICATION",
+    "targetId": 401,
+    "detail": "APPROVED",
+    "createTime": "2026-06-26T16:20:00"
+  }
+]
+```
+
 ## 账号
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/api/auth/login` | 登录 |
+| GET | `/api/auth/me` | 恢复当前登录会话 |
+| POST | `/api/auth/logout` | 退出并作废当前令牌 |
 | POST | `/api/auth/register-teacher` | 教师注册 |
 
 登录请求：
@@ -71,6 +115,8 @@
   "password": "teacher123"
 }
 ```
+
+登录响应包含 `token`、`expiresAt`、`user`，教师账号还会包含 `profile`。令牌仅保存在服务端内存中，服务重启后需要重新登录。
 
 ## 需求
 

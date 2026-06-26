@@ -6,7 +6,8 @@ import com.ptagent.exception.ErrorCode;
 import java.util.List;
 import java.util.Map;
 
-public record ApiRequest(String method, List<String> path, Map<String, String> query, Map<String, Object> body) {
+public record ApiRequest(String method, List<String> path, Map<String, String> query, Map<String, Object> body,
+                         String bearerToken) {
     public boolean method(String expected) {
         return method.equalsIgnoreCase(expected);
     }

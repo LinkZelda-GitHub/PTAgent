@@ -5,6 +5,7 @@ import com.ptagent.exception.ApiException;
 import com.ptagent.exception.ErrorCode;
 import com.ptagent.repository.Repository;
 import com.ptagent.service.ApplicationService;
+import com.ptagent.service.AuditService;
 import com.ptagent.service.AuthService;
 import com.ptagent.service.CourseService;
 import com.ptagent.service.DashboardService;
@@ -14,6 +15,7 @@ import com.ptagent.service.DemandImportService;
 import com.ptagent.service.NotificationService;
 import com.ptagent.service.TeacherService;
 import com.ptagent.web.controller.ApplicationController;
+import com.ptagent.web.controller.AuditController;
 import com.ptagent.web.controller.AuthController;
 import com.ptagent.web.controller.CourseController;
 import com.ptagent.web.controller.DashboardController;
@@ -38,9 +40,10 @@ public class ApiRouter implements HttpHandler {
     private static final String TRACE_ATTRIBUTE = "traceId";
     private static final String STATUS_ATTRIBUTE = "responseStatus";
     private final List<ApiController> controllers;
+    private final AuthService authService;
 
     public ApiRouter(Repository repository) {
-        AuthService authService = new AuthService(repository);
+        this.authService = new AuthService(repository);
         TeacherService teacherService = new TeacherService(repository);
         DemandService demandService = new DemandService(repository);
         ApplicationService applicationService = new ApplicationService(repository);
@@ -49,16 +52,18 @@ public class ApiRouter implements HttpHandler {
         DashboardService dashboardService = new DashboardService(repository);
         NotificationService notificationService = new NotificationService(repository);
         DemandImportService demandImportService = new DemandImportService(repository);
+        AuditService auditService = new AuditService(repository);
         this.controllers = List.of(
                 new DashboardController(dashboardService),
-                new AuthController(authService),
+                new AuthController(this.authService),
                 new DemandController(demandService),
                 new ImportController(demandImportService),
                 new ApplicationController(applicationService),
                 new TeacherController(teacherService),
                 new CourseController(courseService),
                 new FeedbackController(feedbackService),
-                new NotificationController(notificationService)
+                new NotificationController(notificationService),
+                new AuditController(auditService)
         );
     }
 
@@ -69,7 +74,7 @@ public class ApiRouter implements HttpHandler {
         exchange.setAttribute(TRACE_ATTRIBUTE, traceId);
         exchange.getResponseHeaders().set("X-Request-Id", traceId);
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
         exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
         if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
             Response.noContent(exchange);
@@ -96,11 +101,14 @@ public class ApiRouter implements HttpHandler {
         List<String> path = pathSegments(exchange);
         Map<String, String> query = query(exchange);
         Map<String, Object> body = body(exchange);
-        ApiRequest request = new ApiRequest(method, path, query, body);
+        ApiRequest request = new ApiRequest(method, path, query, body, bearerToken(exchange));
 
         if (path.isEmpty() && request.method("GET")) {
             Response.json(exchange, 200, Json.object("service", "PTAgent API", "status", "running"));
             return;
+        }
+        if (!isPublic(request)) {
+            authService.requireSession(request.bearerToken());
         }
         for (ApiController controller : controllers) {
             if (controller.handle(request, exchange)) {
@@ -161,6 +169,20 @@ public class ApiRouter implements HttpHandler {
             return UUID.randomUUID().toString();
         }
         return requestId.trim();
+    }
+
+    private String bearerToken(HttpExchange exchange) {
+        String authorization = exchange.getRequestHeaders().getFirst("Authorization");
+        if (authorization == null || !authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return "";
+        }
+        return authorization.substring(7).trim();
+    }
+
+    private boolean isPublic(ApiRequest request) {
+        return request.is("bootstrap")
+                || request.is("auth", "login")
+                || request.is("auth", "register-teacher");
     }
 
     private void log(HttpExchange exchange, long start, String message) {

@@ -7,7 +7,9 @@ import com.ptagent.exception.ErrorCode;
 import com.ptagent.repository.AppRepository;
 import com.ptagent.repository.Repository;
 import com.ptagent.service.ApplicationService;
+import com.ptagent.service.AuditService;
 import com.ptagent.service.AuthService;
+import com.ptagent.service.CourseService;
 import com.ptagent.service.DemandImportService;
 import com.ptagent.service.DemandService;
 
@@ -19,11 +21,15 @@ import java.util.Map;
 public class ServiceTests {
     public static void main(String[] args) {
         run("AuthService returns stable invalid password code", ServiceTests::authInvalidPasswordCode);
+        run("AuthService creates, restores and revokes sessions", ServiceTests::authSessionLifecycle);
         run("DemandService filters by subject and calculates match score", ServiceTests::demandFiltersAndScores);
         run("DemandService rejects invalid demand payloads", ServiceTests::demandValidation);
         run("DemandImportService imports xlsx order format", ServiceTests::demandXlsxImport);
+        run("Access guard rejects teacher admin actions", ServiceTests::accessGuardRejectsTeacherAdminActions);
         run("ApplicationService blocks duplicated applications", ServiceTests::applicationDuplicateGuard);
         run("ApplicationService approval creates order and updates demand", ServiceTests::applicationApprovalCreatesOrder);
+        run("AuditService lists critical operation logs", ServiceTests::auditLogsCriticalOperations);
+        run("CourseService rejects records from wrong teacher", ServiceTests::courseRecordRequiresOrderTeacher);
         System.out.println("All service tests passed.");
     }
 
@@ -33,6 +39,23 @@ public class ServiceTests {
 
         expectApiException(ErrorCode.AUTH_INVALID_PASSWORD, "密码不正确",
                 () -> authService.login("teacher", "wrong-password"));
+    }
+
+    private static void authSessionLifecycle() {
+        Repository repository = new AppRepository();
+        AuthService authService = new AuthService(repository);
+
+        Map<String, Object> login = authService.login("teacher", "teacher123");
+        String token = String.valueOf(login.get("token"));
+        assertTrue(!token.isBlank(), "登录应签发会话令牌");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> currentUser = (Map<String, Object>) authService.currentSession(token).get("user");
+        assertEquals("teacher", currentUser.get("username"));
+
+        authService.logout(token);
+        expectApiException(ErrorCode.AUTH_SESSION_INVALID, "登录状态已失效",
+                () -> authService.currentSession(token));
     }
 
     private static void demandFiltersAndScores() {
@@ -98,6 +121,21 @@ public class ServiceTests {
                 () -> applicationService.apply(300L, request));
     }
 
+    private static void accessGuardRejectsTeacherAdminActions() {
+        Repository repository = new AppRepository();
+        DemandService demandService = new DemandService(repository);
+
+        expectApiException(ErrorCode.ACCESS_DENIED, "permission denied", () -> demandService.createDemand(body(
+                "adminId", 102L,
+                "parentName", "Parent",
+                "parentPhone", "13900009999",
+                "address", "Test address",
+                "region", "Test region",
+                "subject", "Math",
+                "grade", "Grade 10"
+        )));
+    }
+
     private static void applicationApprovalCreatesOrder() {
         Repository repository = new AppRepository();
         ApplicationService applicationService = new ApplicationService(repository);
@@ -124,6 +162,36 @@ public class ServiceTests {
         Map<String, Object> order = (Map<String, Object>) reviewed.get("order");
         assertEquals(302L, number(order.get("demandId")));
         assertEquals(102L, number(order.get("teacherId")));
+    }
+
+    private static void auditLogsCriticalOperations() {
+        Repository repository = new AppRepository();
+        ApplicationService applicationService = new ApplicationService(repository);
+        AuditService auditService = new AuditService(repository);
+
+        applicationService.apply(300L, body(
+                "teacherId", 102L,
+                "selfIntro", "Available for a staged tutoring plan."
+        ));
+
+        List<Map<String, Object>> logs = auditService.listAuditLogs(100L);
+        assertTrue(logs.stream().anyMatch(log -> "APPLICATION_CREATE".equals(log.get("action"))),
+                "application creation should be audited");
+        expectApiException(ErrorCode.ACCESS_DENIED, "permission denied", () -> auditService.listAuditLogs(102L));
+    }
+
+    private static void courseRecordRequiresOrderTeacher() {
+        Repository repository = new AppRepository();
+        CourseService courseService = new CourseService(repository);
+
+        expectApiException(ErrorCode.ACCESS_DENIED, "permission denied", () -> courseService.createRecord(500L, body(
+                "teacherId", 102L,
+                "lessonDate", "2026-06-26",
+                "lessonDuration", 2,
+                "content", "Lesson",
+                "studentPerformance", "Good",
+                "teacherNotes", "Next lesson"
+        )));
     }
 
     private static Map<String, Object> body(Object... pairs) {

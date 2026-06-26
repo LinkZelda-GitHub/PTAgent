@@ -6,38 +6,39 @@
   <title>PTAgent 家教资源整合平台</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
+<body class="auth-pending">
   <div class="app-shell">
     <aside class="sidebar" aria-label="主导航">
-      <div class="brand">
-        <div class="brand-mark">PT</div>
-        <div class="brand-copy">
-          <strong>PTAgent</strong>
-          <span>家教资源整合平台</span>
+      <div class="sidebar-head">
+        <div class="brand">
+          <div class="brand-mark">PT</div>
+          <div class="brand-copy">
+            <strong>PTAgent</strong>
+            <span>家教资源整合</span>
+          </div>
         </div>
-        <button type="button" class="sidebar-toggle icon-btn" id="sidebarToggle" title="收起侧边栏" aria-label="收起侧边栏">
+
+        <button type="button" class="sidebar-toggle icon-btn" id="sidebarToggle" title="收起导航" aria-label="收起导航">
           <span aria-hidden="true">‹</span>
         </button>
       </div>
 
-      <form class="login-form" id="loginForm">
-        <label>
-          账号
-          <input name="username" autocomplete="username" value="teacher">
-        </label>
-        <label>
-          密码
-          <input name="password" type="password" autocomplete="current-password" value="teacher123">
-        </label>
-        <button type="submit" class="primary-btn" title="登录">
-          <span aria-hidden="true">→</span>
-          登录
-        </button>
-      </form>
-
-      <div class="demo-list" id="demoAccounts"></div>
-
       <nav class="nav-list" id="navList"></nav>
+
+      <section class="sidebar-stats" id="statsGrid" aria-label="业务快捷入口"></section>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user" id="sidebarUser" hidden></div>
+        <div class="sidebar-actions">
+          <button type="button" class="theme-toggle icon-btn" id="themeToggle" title="切换明暗模式" aria-label="切换明暗模式">
+            <span id="themeIcon" aria-hidden="true">☾</span>
+          </button>
+          <button type="button" class="logout-button icon-btn" id="logoutButton" data-action="logout"
+            title="退出登录" aria-label="退出登录" hidden>
+            <img src="/assets/icons/log-out.svg" alt="" width="20" height="20" aria-hidden="true">
+          </button>
+        </div>
+      </div>
     </aside>
     <div class="sidebar-scrim" id="sidebarScrim" aria-hidden="true"></div>
 
@@ -50,32 +51,28 @@
           <p class="eyebrow">本地演示环境</p>
           <h1 id="pageTitle">需求广场</h1>
         </div>
-        <div class="topbar-actions">
-          <button type="button" class="theme-toggle icon-btn" id="themeToggle" title="切换明暗模式" aria-label="切换明暗模式">
-            <span id="themeIcon" aria-hidden="true">☾</span>
-          </button>
-          <div class="current-user" id="currentUser"></div>
-        </div>
       </header>
 
-      <section class="stats-grid" id="statsGrid" aria-label="关键指标"></section>
+      <section class="signed-out-state" id="signedOutState">
+        <div class="signed-out-mark" aria-hidden="true">PT</div>
+        <h2>PTAgent</h2>
+        <p>家教资源工作台</p>
+      </section>
 
-      <section class="focus-strip" aria-label="业务看板">
+      <section class="focus-strip" id="focusStrip" aria-label="业务看板">
         <article class="focus-card focus-orange">
           <span>撮合效率</span>
-          <strong>优先处理高匹配申请</strong>
+          <strong>高匹配申请优先流转</strong>
         </article>
         <article class="focus-card focus-blue">
           <span>教师供给</span>
-          <strong>按科目与区域快速筛选</strong>
+          <strong>按科目与区域快速定位</strong>
         </article>
         <article class="focus-card focus-green">
           <span>课后质量</span>
-          <strong>持续沉淀评价与记录</strong>
+          <strong>沉淀记录、评价与审计</strong>
         </article>
       </section>
-
-      <section class="notifications" id="notifications"></section>
 
       <section class="view is-active" id="view-plaza">
         <div class="section-heading">
@@ -238,7 +235,68 @@
         </form>
         <div class="feedback-list" id="feedbackList"></div>
       </section>
+
+      <section class="view" id="view-audit">
+        <div class="section-heading">
+          <h2>审计日志</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>时间</th><th>动作</th><th>目标</th><th>操作者</th></tr>
+            </thead>
+            <tbody id="auditRows"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
+
+    <aside class="insight-panel" id="insightPanel" aria-label="登录侧栏">
+      <section class="operator-card">
+        <div class="profile-badge" aria-hidden="true">PT</div>
+        <div class="current-user" id="currentUser"></div>
+        <form class="login-form" id="loginForm">
+          <label>
+            账号
+            <input name="username" autocomplete="username" placeholder="请输入账号" required>
+          </label>
+          <label>
+            密码
+            <input name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required>
+          </label>
+          <p class="form-error" id="loginError" role="alert" hidden></p>
+          <button type="submit" class="primary-btn" title="登录">
+            <span aria-hidden="true">→</span>
+            登录
+          </button>
+        </form>
+      </section>
+
+      <section class="insight-card">
+        <div class="panel-heading">
+          <h2>演示账号</h2>
+        </div>
+        <div class="demo-list" id="demoAccounts"></div>
+      </section>
+
+      <section class="insight-card">
+        <div class="panel-heading">
+          <h2>最新通知</h2>
+        </div>
+        <div class="notifications" id="notifications"></div>
+      </section>
+
+      <section class="insight-card compact-insight">
+        <div class="panel-heading">
+          <h2>今日节奏</h2>
+        </div>
+        <ul class="rhythm-list">
+          <li><span>1</span>发布需求后先看匹配度</li>
+          <li><span>2</span>教师申请由最高管理员审核</li>
+          <li><span>3</span>成单后沉淀授课记录与评价</li>
+        </ul>
+      </section>
+    </aside>
   </div>
 
   <dialog id="applyDialog">

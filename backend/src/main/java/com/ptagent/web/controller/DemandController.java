@@ -32,7 +32,7 @@ public class DemandController implements ApiController {
         }
         if (request.path().size() == 3 && "demands".equals(request.path().get(0))
                 && "close".equals(request.path().get(2)) && !request.method("GET")) {
-            Response.json(exchange, 200, demandService.closeDemand(request.pathId(1)));
+            Response.json(exchange, 200, demandService.closeDemand(request.pathId(1), request.body()));
             return true;
         }
         return false;

@@ -23,7 +23,7 @@ docs/                      项目文档
 
 | 层 | 职责 |
 |---|---|
-| `domain` | 用户、教师资料、简历、需求、申请、订单、授课记录、评价等核心对象 |
+| `domain` | 用户、教师资料、简历、需求、申请、订单、授课记录、评价、审计日志等核心对象 |
 | `repository` | 通过 `Repository` 接口隔离数据访问；当前实现使用内存 Map 保存数据并初始化示例数据 |
 | `service` | 登录、需求筛选排序、申请审核、课程记录、评价回访等业务规则 |
 | `web` | 解析 HTTP 请求、统一错误响应、分发到轻量 controller、静态文件访问 |
@@ -31,7 +31,7 @@ docs/                      项目文档
 
 ## API 分发
 
-`ApiRouter` 只负责 CORS、请求解析、统一异常处理和 controller 调度。具体业务路径已拆分到：
+`ApiRouter` 负责 CORS、请求解析、内存会话校验、统一异常处理和 controller 调度。具体业务路径已拆分到：
 
 - `AuthController`
 - `DashboardController`
@@ -42,8 +42,17 @@ docs/                      项目文档
 - `FeedbackController`
 - `NotificationController`
 - `ImportController`
+- `AuditController`
 
 错误响应统一包含 `code`、`message` 与 `traceId`，其中 `code` 由 `ErrorCode` 维护，便于前端和未来 Spring MVC 全局异常处理复用。
+
+## 权限与审计
+
+- `AuthService` 在登录成功后签发 12 小时内存令牌，提供当前会话恢复和退出失效能力；`ApiRouter` 对非公开 API 统一校验 Bearer Token。
+- `AccessGuard` 集中处理 MVP 阶段的角色校验，按 `adminId`、`teacherId`、`actorId` 或 `submitAdminId` 找到操作者并验证账号启用状态。
+- 关键写操作会写入内存 `AuditLog`：发布/关闭需求、XLSX 导入、申请接单、审核申请、启用/禁用教师、简历提交/标记、授课记录和评价。
+- `AuditController` 提供 `/api/audit-logs?actorId={id}`，仅管理员和最高管理员可查看。
+- 当前会话只保存在单进程内存中，服务重启后失效；迁移 Spring Security/JWT 后，操作者应直接来自认证上下文，而不是请求体。
 
 ## 运维基础
 
@@ -56,15 +65,15 @@ docs/                      项目文档
 当前仍保持零 Node/npm 依赖，使用浏览器原生 ES Module：
 
 - `app.js`：初始化入口。
-- `js/api.js`：REST 请求与查询参数拼装。
+- `js/api.js`：REST 请求、Bearer Token 注入与查询参数拼装。
 - `js/state.js`：全局页面状态、角色菜单和筛选字段定义。
-- `js/data.js`：登录、启动数据、需求列表和全量数据刷新。
+- `js/data.js`：登录、会话恢复/退出、启动数据、需求列表和全量数据刷新。
 - `js/render.js`：页面渲染、空状态和加载状态。
 - `js/events.js`：导航、筛选、表单和按钮事件。
 - `js/map.js`：本地坐标板和可选高德地图加载。
 - `js/view.js`：DOM 工具、主题/侧栏偏好、Toast、提交中状态。
 
-主题、侧栏折叠和需求广场筛选条件均使用 `localStorage` 本地持久化。
+主题、侧栏折叠、登录令牌和需求广场筛选条件均使用 `localStorage` 本地持久化。登录成功后右侧登录栏会从布局中隐藏，左侧提供基于本地图标的业务快捷入口。
 
 地图默认使用本地坐标板；填写高德 Web Key 后，前端通过高德 JavaScript API Loader 加载真实地图并绘制需求标记。地图 Key 与安全密钥仅保存于浏览器 `localStorage`，不进入仓库。
 

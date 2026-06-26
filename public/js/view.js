@@ -45,7 +45,7 @@ export function preferredSidebar() {
 }
 
 export function isMobileLayout() {
-  return window.matchMedia("(max-width: 1050px)").matches;
+  return window.matchMedia("(max-width: 980px)").matches;
 }
 
 export function applySidebar(collapsed, options = {}) {

@@ -23,6 +23,15 @@ public class AuthController implements ApiController {
                     Json.str(request.body(), "password")));
             return true;
         }
+        if (request.is("auth", "me") && request.method("GET")) {
+            Response.json(exchange, 200, authService.currentSession(request.bearerToken()));
+            return true;
+        }
+        if (request.is("auth", "logout") && request.method("POST")) {
+            authService.logout(request.bearerToken());
+            Response.noContent(exchange);
+            return true;
+        }
         if (request.is("auth", "register-teacher") && request.method("POST")) {
             Response.json(exchange, 201, authService.registerTeacher(request.body()));
             return true;

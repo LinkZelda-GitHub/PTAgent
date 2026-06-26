@@ -30,7 +30,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
 
 ## 已实现范围
 
-- 三角色登录与教师注册雏形
+- 三角色登录、12 小时内存会话、刷新恢复与安全退出
 - 教师资料、教师简历投递与管理员查看/标记
 - 管理员发布需求、关闭需求
 - 教师端需求广场，支持科目、年级、区域、资质标签筛选，以及最新、距离、薪酬、匹配度排序
@@ -42,6 +42,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
 - 需求广场地图支持本地坐标板，并可填写高德 Web Key 升级为真实地图
 - 支持按 `example.xlsx` 的分区订单格式导入需求数据
 - 健康检查 `/actuator/health`、API 请求追踪 ID 和基础访问日志
+- 后端角色权限校验与关键操作审计日志，管理员可在“审计日志”页面查看
+- 登录成功后自动隐藏右侧登录栏，左侧快捷入口使用图标按钮与悬浮说明
 - 本地 GUI、REST API、运行/依赖/架构/API/开发备忘录文档
 
 ## 地图配置

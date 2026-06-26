@@ -24,9 +24,11 @@ public class DemandImportService {
             "光明区", "观澜区", "福田区", "天河区", "越秀区", "海珠区", "荔湾区", "番禺区");
 
     private final Repository repository;
+    private final AccessGuard accessGuard;
 
     public DemandImportService(Repository repository) {
         this.repository = repository;
+        this.accessGuard = new AccessGuard(repository);
     }
 
     public Map<String, Object> importDemandXlsx(Map<String, Object> body) {
@@ -42,6 +44,7 @@ public class DemandImportService {
     }
 
     public Map<String, Object> importDemandXlsx(Path path, long adminId) {
+        accessGuard.requireAdmin(adminId);
         if (!Files.isRegularFile(path)) {
             throw ApiException.notFound(ErrorCode.IMPORT_FILE_NOT_FOUND, "导入文件不存在");
         }
@@ -90,13 +93,16 @@ public class DemandImportService {
             }
         }
 
-        return Json.object(
+        Map<String, Object> result = Json.object(
                 "sheetName", sheet.name(),
                 "importedCount", imported.size(),
                 "skippedCount", skipped,
                 "failedCount", failed,
                 "items", imported
         );
+        repository.createAuditLog(adminId, "DEMAND_IMPORT_XLSX", "DEMAND", 0,
+                path.getFileName() + " imported=" + imported.size() + " skipped=" + skipped + " failed=" + failed);
+        return result;
     }
 
     private Path resolveImportPath(String filePath) {

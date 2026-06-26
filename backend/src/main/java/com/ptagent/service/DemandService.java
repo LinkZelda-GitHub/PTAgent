@@ -19,9 +19,11 @@ public class DemandService {
     private static final double DEFAULT_TEACHER_LON = 113.2644;
 
     private final Repository repository;
+    private final AccessGuard accessGuard;
 
     public DemandService(Repository repository) {
         this.repository = repository;
+        this.accessGuard = new AccessGuard(repository);
     }
 
     public List<Map<String, Object>> listDemands(Map<String, String> query) {
@@ -97,6 +99,7 @@ public class DemandService {
     public Map<String, Object> createDemand(Map<String, Object> body) {
         Demand demand = new Demand();
         demand.adminId = Json.longValue(body, "adminId", 0);
+        accessGuard.requireAdmin(demand.adminId);
         demand.parentName = required(body, "parentName", "家长姓名不能为空");
         demand.parentPhone = required(body, "parentPhone", "家长电话不能为空");
         demand.parentWechat = Json.str(body, "parentWechat");
@@ -127,15 +130,21 @@ public class DemandService {
         demand.is211Required = Json.bool(body, "is211Required", false);
         demand.isKeyUniversityRequired = Json.bool(body, "isKeyUniversityRequired", false);
         Demand created = repository.createDemand(demand);
+        repository.createAuditLog(demand.adminId, "DEMAND_CREATE", "DEMAND", created.id,
+                created.grade + created.subject);
         return created.toMap(round1(distanceKm(DEFAULT_TEACHER_LAT, DEFAULT_TEACHER_LON, created.latitude, created.longitude)), 0);
     }
 
-    public Map<String, Object> closeDemand(long demandId) {
+    public Map<String, Object> closeDemand(long demandId, Map<String, Object> body) {
+        long adminId = Json.longValue(body, "adminId", 0);
+        accessGuard.requireAdmin(adminId);
         Demand demand = repository.findDemand(demandId)
                 .orElseThrow(() -> ApiException.notFound(ErrorCode.DEMAND_NOT_FOUND, "需求不存在"));
         demand.status = DemandStatus.CLOSED;
         demand.closeTime = LocalDateTime.now();
         repository.saveDemand(demand);
+        repository.createAuditLog(adminId, "DEMAND_CLOSE", "DEMAND", demand.id,
+                demand.grade + demand.subject);
         return demand.toMap(round1(distanceKm(DEFAULT_TEACHER_LAT, DEFAULT_TEACHER_LON, demand.latitude, demand.longitude)), 0);
     }
 

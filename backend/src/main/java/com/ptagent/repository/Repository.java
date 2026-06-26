@@ -1,6 +1,7 @@
 package com.ptagent.repository;
 
 import com.ptagent.domain.CourseOrder;
+import com.ptagent.domain.AuditLog;
 import com.ptagent.domain.Demand;
 import com.ptagent.domain.DemandApplication;
 import com.ptagent.domain.Feedback;
@@ -74,4 +75,8 @@ public interface Repository {
     Notification createNotification(long userId, String title, String message);
 
     List<Notification> notificationsFor(long userId);
+
+    AuditLog createAuditLog(long actorId, String action, String targetType, long targetId, String detail);
+
+    List<AuditLog> allAuditLogs();
 }

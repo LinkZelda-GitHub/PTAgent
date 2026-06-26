@@ -18,9 +18,11 @@ import java.util.Map;
 
 public class ApplicationService {
     private final Repository repository;
+    private final AccessGuard accessGuard;
 
     public ApplicationService(Repository repository) {
         this.repository = repository;
+        this.accessGuard = new AccessGuard(repository);
     }
 
     public List<Map<String, Object>> listApplications(String status) {
@@ -34,6 +36,7 @@ public class ApplicationService {
 
     public Map<String, Object> apply(long demandId, Map<String, Object> body) {
         long teacherId = Json.longValue(body, "teacherId", 0);
+        accessGuard.requireTeacher(teacherId);
         String selfIntro = Json.str(body, "selfIntro");
         if (teacherId == 0) {
             throw ApiException.badRequest(ErrorCode.VALIDATION_ERROR, "教师ID不能为空");
@@ -52,6 +55,8 @@ public class ApplicationService {
             throw ApiException.badRequest(ErrorCode.APPLICATION_DUPLICATED, "你已申请过该需求");
         }
         DemandApplication application = repository.createApplication(demandId, teacherId, selfIntro);
+        repository.createAuditLog(teacherId, "APPLICATION_CREATE", "DEMAND", demandId,
+                "applicationId=" + application.id);
         repository.createNotification(teacherId, "申请已提交", demand.grade + demand.subject + " 需求已进入管理员审核。");
         return toMap(application);
     }
@@ -69,10 +74,13 @@ public class ApplicationService {
             throw ApiException.badRequest(ErrorCode.VALIDATION_ERROR, "审核状态不正确");
         }
         long adminId = Json.longValue(body, "adminId", 0);
+        accessGuard.requireSuperAdmin(adminId);
         application.status = next;
         application.confirmAdminId = adminId;
         application.confirmTime = LocalDateTime.now();
         repository.saveApplication(application);
+        repository.createAuditLog(adminId, "APPLICATION_REVIEW", "APPLICATION", application.id,
+                next.name());
 
         Demand demand = repository.findDemand(application.demandId)
                 .orElseThrow(() -> ApiException.notFound(ErrorCode.DEMAND_NOT_FOUND, "需求不存在"));

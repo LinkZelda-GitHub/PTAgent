@@ -12,9 +12,13 @@ import com.ptagent.repository.Repository;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class AuthService {
+    private static final int SESSION_HOURS = 12;
     private final Repository repository;
+    private final Map<String, Session> sessions = new ConcurrentHashMap<>();
 
     public AuthService(Repository repository) {
         this.repository = repository;
@@ -31,6 +35,45 @@ public class AuthService {
         }
         user.lastLogin = LocalDateTime.now();
         repository.saveUser(user);
+        String token = UUID.randomUUID().toString();
+        LocalDateTime expiresAt = LocalDateTime.now().plusHours(SESSION_HOURS);
+        sessions.put(token, new Session(user.id, expiresAt));
+
+        Map<String, Object> response = sessionResponse(user);
+        response.put("token", token);
+        response.put("expiresAt", expiresAt.toString());
+        return response;
+    }
+
+    public Map<String, Object> currentSession(String token) {
+        return sessionResponse(requireSession(token));
+    }
+
+    public User requireSession(String token) {
+        if (token == null || token.isBlank()) {
+            throw new ApiException(401, ErrorCode.AUTH_REQUIRED, "请先登录");
+        }
+        Session session = sessions.get(token);
+        if (session == null || session.expiresAt().isBefore(LocalDateTime.now())) {
+            sessions.remove(token);
+            throw new ApiException(401, ErrorCode.AUTH_SESSION_INVALID, "登录状态已失效，请重新登录");
+        }
+        User user = repository.findUser(session.userId())
+                .orElseThrow(() -> new ApiException(401, ErrorCode.AUTH_SESSION_INVALID, "登录账号不存在"));
+        if (!user.enabled) {
+            sessions.remove(token);
+            throw new ApiException(401, ErrorCode.AUTH_DISABLED, "账号已被禁用");
+        }
+        return user;
+    }
+
+    public void logout(String token) {
+        if (token != null && !token.isBlank()) {
+            sessions.remove(token);
+        }
+    }
+
+    private Map<String, Object> sessionResponse(User user) {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("user", user.toPublicMap());
         repository.findProfile(user.id).ifPresent(profile -> response.put("profile", profile.toMap(user)));
@@ -71,5 +114,8 @@ public class AuthService {
             throw ApiException.badRequest(ErrorCode.VALIDATION_ERROR, message);
         }
         return value;
+    }
+
+    private record Session(long userId, LocalDateTime expiresAt) {
     }
 }

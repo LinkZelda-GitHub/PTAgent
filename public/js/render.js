@@ -1,8 +1,9 @@
 import { renderDemandMap } from "./map.js";
-import { state, tabs } from "./state.js";
+import { shortcuts, state, tabs } from "./state.js";
 import { $, formatDateTime, html } from "./view.js";
 
 export function render() {
+  renderAuthState();
   renderNav();
   renderHeader();
   renderStats();
@@ -14,6 +15,7 @@ export function render() {
   renderOrders();
   renderRecords();
   renderFeedbacks();
+  renderAuditLogs();
 }
 
 export function renderDemoAccounts() {
@@ -27,53 +29,61 @@ export function renderDemoAccounts() {
 }
 
 function renderNav() {
-  const allowed = tabs.filter((tab) => !state.user || tab.roles.includes(state.user.role));
+  const allowed = state.user ? tabs.filter((tab) => tab.roles.includes(state.user.role)) : [];
   if (!allowed.some((tab) => tab.id === state.currentTab)) {
     state.currentTab = allowed[0]?.id || "plaza";
   }
   $("#navList").innerHTML = allowed.map((tab) => `
     <button type="button" class="nav-btn ${tab.id === state.currentTab ? "is-active" : ""}"
-      data-action="nav" data-tab="${html(tab.id)}">
+      data-action="nav" data-tab="${html(tab.id)}" title="${html(tab.label)}">
       <span class="nav-icon" aria-hidden="true">${html(tab.icon)}</span>
       <span class="nav-label">${html(tab.label)}</span>
     </button>
   `).join("");
   document.querySelectorAll(".view").forEach((view) => view.classList.remove("is-active"));
-  $(`#view-${state.currentTab}`)?.classList.add("is-active");
+  if (state.user) {
+    $(`#view-${state.currentTab}`)?.classList.add("is-active");
+  }
+}
+
+function renderAuthState() {
+  const authenticated = Boolean(state.user);
+  document.body.classList.remove("auth-pending");
+  document.body.classList.toggle("is-authenticated", authenticated);
+  $("#insightPanel").hidden = authenticated;
+  $("#signedOutState").hidden = authenticated;
+  $("#focusStrip").hidden = !authenticated;
+  $("#sidebarUser").hidden = !authenticated;
+  $("#logoutButton").hidden = !authenticated;
 }
 
 function renderHeader() {
   const tab = tabs.find((item) => item.id === state.currentTab);
-  $("#pageTitle").textContent = tab?.label || "操作台";
-  $("#currentUser").innerHTML = state.user ? `
-    <span class="role-pill">${html(state.user.roleLabel)}</span>
-    <strong>${html(state.profile?.realName || state.user.username)}</strong>
-  ` : `<span class="muted">未登录</span>`;
+  $("#pageTitle").textContent = state.user ? (tab?.label || "操作台") : "账号登录";
+  $("#currentUser").innerHTML = `<strong>登录 PTAgent</strong><span class="muted">家教资源工作台</span>`;
+  $("#sidebarUser").innerHTML = state.user ? `
+    <span class="sidebar-user-avatar" aria-hidden="true">${html((state.profile?.realName || state.user.username).slice(0, 1))}</span>
+    <span class="sidebar-user-copy">
+      <strong>${html(state.profile?.realName || state.user.username)}</strong>
+      <small>${html(state.user.roleLabel)}</small>
+    </span>
+  ` : "";
 }
 
 function renderStats() {
-  if (!state.bootstrap) {
-    $("#statsGrid").innerHTML = loadingBlock("正在加载关键指标...");
+  if (!state.user) {
+    $("#statsGrid").innerHTML = "";
     return;
   }
-  const stats = [
-    ["待接单需求", state.bootstrap.openDemands, demandStatsTarget()],
-    ["启用教师", state.bootstrap.activeTeachers, "teachers"],
-    ["待审申请", state.bootstrap.pendingApplications, "applications"],
-    ["课程订单", state.bootstrap.courseOrders, "courses"]
-  ];
-  $("#statsGrid").innerHTML = stats.map(([label, value, tab]) => `
-    <button type="button" class="stat stat-button" data-action="nav" data-tab="${html(tab)}"
-      aria-label="打开${html(label)}页面">
-      <span>${html(label)}</span>
-      <strong>${html(value)}</strong>
-      <em>打开</em>
+  $("#statsGrid").innerHTML = shortcuts.map((shortcut) => {
+    const tab = shortcut.tab || (state.user.role === "TEACHER" ? shortcut.teacherTab : shortcut.adminTab);
+    return `
+    <button type="button" class="shortcut-button" data-action="nav" data-tab="${html(tab)}"
+      data-tooltip="${html(shortcut.description)}" aria-label="${html(shortcut.description)}">
+      <img src="${html(shortcut.icon)}" alt="" width="22" height="22" aria-hidden="true">
     </button>
-  `).join("");
-}
-
-function demandStatsTarget() {
-  return state.user?.role === "TEACHER" ? "plaza" : "admin-demands";
+  `;
+  }).join("");
 }
 
 function renderNotifications() {
@@ -262,6 +272,7 @@ function renderOrders() {
 
   const options = state.orders.map((order) =>
     `<option value="${order.id}">#${order.id} ${html(order.courseTitle)} · ${html(order.teacherName)}</option>`).join("");
+  $("#recordForm").hidden = state.user?.role !== "TEACHER";
   $("#recordOrder").innerHTML = options;
   $("#feedbackOrder").innerHTML = options;
 }
@@ -295,6 +306,21 @@ function renderFeedbacks() {
       </div>
     </article>
   `).join("");
+}
+
+function renderAuditLogs() {
+  const rows = $("#auditRows");
+  if (!rows) {
+    return;
+  }
+  rows.innerHTML = state.auditLogs.length ? state.auditLogs.map((log) => `
+    <tr>
+      <td>${html(formatDateTime(log.createTime))}</td>
+      <td><strong>${html(log.action)}</strong><br><span class="muted">${html(log.detail || "")}</span></td>
+      <td>${html(log.targetType)} #${html(log.targetId)}</td>
+      <td>#${html(log.actorId)} ${html(log.actorRole)}</td>
+    </tr>
+  `).join("") : `<tr><td colspan="4">${emptyBlock("暂无审计日志。")}</td></tr>`;
 }
 
 function loadingBlock(message) {

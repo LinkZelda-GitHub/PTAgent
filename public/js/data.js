@@ -1,4 +1,4 @@
-import { api, queryString } from "./api.js";
+import { api, getAuthToken, queryString, setAuthToken } from "./api.js";
 import { renderDemoAccounts } from "./render.js";
 import { defaultTab, filterIds, state } from "./state.js";
 import { $, fillMultiSelect, fillSelect } from "./view.js";
@@ -21,10 +21,56 @@ export async function loadBootstrap() {
 
 export async function login(username, password) {
   const data = await api("/auth/login", { method: "POST", body: { username, password } });
+  setAuthToken(data.token);
   state.user = data.user;
   state.profile = data.profile || null;
   state.currentTab = defaultTab();
   await refreshAll();
+}
+
+export async function restoreSession() {
+  if (!getAuthToken()) return false;
+  try {
+    const data = await api("/auth/me");
+    state.user = data.user;
+    state.profile = data.profile || null;
+    state.currentTab = defaultTab();
+    await refreshAll();
+    return true;
+  } catch (error) {
+    clearSession();
+    if (!["AUTH_REQUIRED", "AUTH_SESSION_INVALID", "AUTH_DISABLED"].includes(error.code)) {
+      throw error;
+    }
+    return false;
+  }
+}
+
+export async function logout() {
+  try {
+    if (getAuthToken()) {
+      await api("/auth/logout", { method: "POST", body: {} });
+    }
+  } finally {
+    clearSession();
+  }
+}
+
+export function clearSession() {
+  setAuthToken("");
+  state.user = null;
+  state.profile = null;
+  state.currentTab = "plaza";
+  state.demands = [];
+  state.allDemands = [];
+  state.applications = [];
+  state.teachers = [];
+  state.resumes = [];
+  state.orders = [];
+  state.records = [];
+  state.feedbacks = [];
+  state.auditLogs = [];
+  state.notifications = [];
 }
 
 export async function refreshAll() {
@@ -40,6 +86,9 @@ export async function refreshAll() {
       api(`/orders${state.user?.role === "TEACHER" ? `?teacherId=${state.user.id}` : ""}`).then((data) => state.orders = data),
       api("/records").then((data) => state.records = data),
       api("/feedbacks").then((data) => state.feedbacks = data),
+      ["ADMIN", "SUPER_ADMIN"].includes(state.user?.role)
+        ? api(`/audit-logs?actorId=${state.user.id}`).then((data) => state.auditLogs = data)
+        : Promise.resolve(state.auditLogs = []),
       api(`/notifications?userId=${state.user?.id || 0}`).then((data) => state.notifications = data)
     ]);
   } finally {

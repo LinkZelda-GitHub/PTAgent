@@ -14,9 +14,11 @@ import java.util.Map;
 
 public class CourseService {
     private final Repository repository;
+    private final AccessGuard accessGuard;
 
     public CourseService(Repository repository) {
         this.repository = repository;
+        this.accessGuard = new AccessGuard(repository);
     }
 
     public List<Map<String, Object>> listOrders(long teacherId) {
@@ -37,7 +39,13 @@ public class CourseService {
     }
 
     public Map<String, Object> createRecord(long orderId, Map<String, Object> body) {
-        repository.findOrder(orderId).orElseThrow(() -> ApiException.notFound(ErrorCode.ORDER_NOT_FOUND, "课程订单不存在"));
+        CourseOrder order = repository.findOrder(orderId)
+                .orElseThrow(() -> ApiException.notFound(ErrorCode.ORDER_NOT_FOUND, "课程订单不存在"));
+        long teacherId = Json.longValue(body, "teacherId", 0);
+        accessGuard.requireTeacher(teacherId);
+        if (order.teacherId != teacherId) {
+            throw new ApiException(403, ErrorCode.ACCESS_DENIED, "permission denied");
+        }
         LocalDate lessonDate = Json.str(body, "lessonDate").isBlank()
                 ? LocalDate.now() : LocalDate.parse(Json.str(body, "lessonDate"));
         TeachingRecord record = repository.createTeachingRecord(orderId,
@@ -46,6 +54,8 @@ public class CourseService {
                 Json.str(body, "content"),
                 Json.str(body, "studentPerformance"),
                 Json.str(body, "teacherNotes"));
+        repository.createAuditLog(teacherId, "TEACHING_RECORD_CREATE", "ORDER", orderId,
+                "recordId=" + record.id);
         return record.toMap();
     }
 }
