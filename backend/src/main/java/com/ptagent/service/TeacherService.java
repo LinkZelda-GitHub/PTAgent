@@ -5,6 +5,8 @@ import com.ptagent.domain.RoleType;
 import com.ptagent.domain.TeacherProfile;
 import com.ptagent.domain.TeacherResume;
 import com.ptagent.domain.User;
+import com.ptagent.exception.ApiException;
+import com.ptagent.exception.ErrorCode;
 import com.ptagent.repository.Repository;
 
 import java.util.Comparator;
@@ -27,7 +29,7 @@ public class TeacherService {
 
     public Map<String, Object> updateProfile(long teacherId, Map<String, Object> body) {
         TeacherProfile profile = repository.findProfile(teacherId)
-                .orElseThrow(() -> new IllegalArgumentException("教师资料不存在"));
+                .orElseThrow(() -> ApiException.notFound(ErrorCode.TEACHER_PROFILE_NOT_FOUND, "教师资料不存在"));
         if (body.containsKey("realName")) {
             profile.realName = Json.str(body, "realName");
         }
@@ -67,16 +69,16 @@ public class TeacherService {
 
     public Map<String, Object> setEnabled(long teacherId, boolean enabled) {
         User user = repository.findUser(teacherId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+                .orElseThrow(() -> ApiException.notFound(ErrorCode.USER_NOT_FOUND, "用户不存在"));
         if (user.role != RoleType.TEACHER) {
-            throw new IllegalArgumentException("只能审核教师账号");
+            throw ApiException.badRequest(ErrorCode.VALIDATION_ERROR, "只能审核教师账号");
         }
         user.enabled = enabled;
         repository.saveUser(user);
         repository.createNotification(teacherId, enabled ? "账号已启用" : "账号已禁用",
                 enabled ? "最高管理员已启用你的教师账号。" : "账号已被禁用，请联系平台管理员。");
         TeacherProfile profile = repository.findProfile(teacherId)
-                .orElseThrow(() -> new IllegalArgumentException("教师资料不存在"));
+                .orElseThrow(() -> ApiException.notFound(ErrorCode.TEACHER_PROFILE_NOT_FOUND, "教师资料不存在"));
         return profile.toMap(user);
     }
 
@@ -90,7 +92,7 @@ public class TeacherService {
     public Map<String, Object> submitResume(Map<String, Object> body) {
         long teacherId = Json.longValue(body, "teacherId", 0);
         if (teacherId == 0 || repository.findProfile(teacherId).isEmpty()) {
-            throw new IllegalArgumentException("教师不存在");
+            throw ApiException.notFound(ErrorCode.TEACHER_NOT_FOUND, "教师不存在");
         }
         TeacherResume resume = repository.createResume(teacherId, Json.str(body, "fileUrl"), Json.str(body, "summary"));
         repository.createNotification(teacherId, "简历已提交", "平台管理员已收到你的最新简历。");
@@ -99,7 +101,7 @@ public class TeacherService {
 
     public Map<String, Object> updateResumeStatus(long resumeId, int status) {
         TeacherResume resume = repository.findResume(resumeId)
-                .orElseThrow(() -> new IllegalArgumentException("简历不存在"));
+                .orElseThrow(() -> ApiException.notFound(ErrorCode.RESUME_NOT_FOUND, "简历不存在"));
         resume.status = status;
         return resume.toMap(repository.findProfile(resume.teacherId).orElse(null));
     }

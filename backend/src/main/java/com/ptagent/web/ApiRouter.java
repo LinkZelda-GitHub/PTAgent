@@ -1,6 +1,8 @@
 package com.ptagent.web;
 
 import com.ptagent.common.Json;
+import com.ptagent.exception.ApiException;
+import com.ptagent.exception.ErrorCode;
 import com.ptagent.repository.Repository;
 import com.ptagent.service.ApplicationService;
 import com.ptagent.service.AuthService;
@@ -8,8 +10,18 @@ import com.ptagent.service.CourseService;
 import com.ptagent.service.DashboardService;
 import com.ptagent.service.DemandService;
 import com.ptagent.service.FeedbackService;
+import com.ptagent.service.DemandImportService;
 import com.ptagent.service.NotificationService;
 import com.ptagent.service.TeacherService;
+import com.ptagent.web.controller.ApplicationController;
+import com.ptagent.web.controller.AuthController;
+import com.ptagent.web.controller.CourseController;
+import com.ptagent.web.controller.DashboardController;
+import com.ptagent.web.controller.DemandController;
+import com.ptagent.web.controller.FeedbackController;
+import com.ptagent.web.controller.ImportController;
+import com.ptagent.web.controller.NotificationController;
+import com.ptagent.web.controller.TeacherController;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
@@ -20,45 +32,62 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class ApiRouter implements HttpHandler {
-    private final AuthService authService;
-    private final TeacherService teacherService;
-    private final DemandService demandService;
-    private final ApplicationService applicationService;
-    private final CourseService courseService;
-    private final FeedbackService feedbackService;
-    private final DashboardService dashboardService;
-    private final NotificationService notificationService;
+    private static final String TRACE_ATTRIBUTE = "traceId";
+    private static final String STATUS_ATTRIBUTE = "responseStatus";
+    private final List<ApiController> controllers;
 
     public ApiRouter(Repository repository) {
-        this.authService = new AuthService(repository);
-        this.teacherService = new TeacherService(repository);
-        this.demandService = new DemandService(repository);
-        this.applicationService = new ApplicationService(repository);
-        this.courseService = new CourseService(repository);
-        this.feedbackService = new FeedbackService(repository);
-        this.dashboardService = new DashboardService(repository);
-        this.notificationService = new NotificationService(repository);
+        AuthService authService = new AuthService(repository);
+        TeacherService teacherService = new TeacherService(repository);
+        DemandService demandService = new DemandService(repository);
+        ApplicationService applicationService = new ApplicationService(repository);
+        CourseService courseService = new CourseService(repository);
+        FeedbackService feedbackService = new FeedbackService(repository);
+        DashboardService dashboardService = new DashboardService(repository);
+        NotificationService notificationService = new NotificationService(repository);
+        DemandImportService demandImportService = new DemandImportService(repository);
+        this.controllers = List.of(
+                new DashboardController(dashboardService),
+                new AuthController(authService),
+                new DemandController(demandService),
+                new ImportController(demandImportService),
+                new ApplicationController(applicationService),
+                new TeacherController(teacherService),
+                new CourseController(courseService),
+                new FeedbackController(feedbackService),
+                new NotificationController(notificationService)
+        );
     }
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        long start = System.nanoTime();
+        String traceId = traceId(exchange);
+        exchange.setAttribute(TRACE_ATTRIBUTE, traceId);
+        exchange.getResponseHeaders().set("X-Request-Id", traceId);
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
         exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
         exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
         if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
             Response.noContent(exchange);
+            log(exchange, start, null);
             return;
         }
 
         try {
             route(exchange);
+        } catch (ApiException e) {
+            Response.error(exchange, e.status(), e.code(), e.getMessage());
         } catch (IllegalArgumentException e) {
-            Response.error(exchange, 400, e.getMessage());
+            Response.error(exchange, 400, ErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
-            Response.error(exchange, 500, "服务异常：" + e.getMessage());
+            Response.error(exchange, 500, ErrorCode.INTERNAL_ERROR, "服务异常：" + e.getMessage());
+        } finally {
+            log(exchange, start, null);
         }
     }
 
@@ -67,101 +96,19 @@ public class ApiRouter implements HttpHandler {
         List<String> path = pathSegments(exchange);
         Map<String, String> query = query(exchange);
         Map<String, Object> body = body(exchange);
+        ApiRequest request = new ApiRequest(method, path, query, body);
 
-        if (path.isEmpty() && "GET".equals(method)) {
+        if (path.isEmpty() && request.method("GET")) {
             Response.json(exchange, 200, Json.object("service", "PTAgent API", "status", "running"));
             return;
         }
-        if (is(path, "bootstrap") && "GET".equals(method)) {
-            Response.json(exchange, 200, dashboardService.dashboard());
-            return;
-        }
-        if (is(path, "auth", "login") && "POST".equals(method)) {
-            Response.json(exchange, 200, authService.login(Json.str(body, "username"), Json.str(body, "password")));
-            return;
-        }
-        if (is(path, "auth", "register-teacher") && "POST".equals(method)) {
-            Response.json(exchange, 201, authService.registerTeacher(body));
-            return;
-        }
-        if (is(path, "demands") && "GET".equals(method)) {
-            Response.json(exchange, 200, demandService.listDemands(query));
-            return;
-        }
-        if (is(path, "demands") && "POST".equals(method)) {
-            Response.json(exchange, 201, demandService.createDemand(body));
-            return;
-        }
-        if (path.size() == 2 && "demands".equals(path.get(0)) && "GET".equals(method)) {
-            Response.json(exchange, 200, demandService.getDemand(parseId(path.get(1)), parseLong(query.get("teacherId"), 0)));
-            return;
-        }
-        if (path.size() == 3 && "demands".equals(path.get(0)) && "close".equals(path.get(2)) && !"GET".equals(method)) {
-            Response.json(exchange, 200, demandService.closeDemand(parseId(path.get(1))));
-            return;
-        }
-        if (path.size() == 3 && "demands".equals(path.get(0)) && "applications".equals(path.get(2)) && "POST".equals(method)) {
-            Response.json(exchange, 201, applicationService.apply(parseId(path.get(1)), body));
-            return;
-        }
-        if (is(path, "applications") && "GET".equals(method)) {
-            Response.json(exchange, 200, applicationService.listApplications(query.getOrDefault("status", "ALL")));
-            return;
-        }
-        if (path.size() == 3 && "applications".equals(path.get(0)) && "review".equals(path.get(2)) && "POST".equals(method)) {
-            Response.json(exchange, 200, applicationService.review(parseId(path.get(1)), body));
-            return;
-        }
-        if (is(path, "teachers") && "GET".equals(method)) {
-            Response.json(exchange, 200, teacherService.listTeachers());
-            return;
-        }
-        if (path.size() == 3 && "teachers".equals(path.get(0)) && "enabled".equals(path.get(2)) && !"GET".equals(method)) {
-            Response.json(exchange, 200, teacherService.setEnabled(parseId(path.get(1)), Json.bool(body, "enabled", true)));
-            return;
-        }
-        if (path.size() == 3 && "teachers".equals(path.get(0)) && "profile".equals(path.get(2)) && !"GET".equals(method)) {
-            Response.json(exchange, 200, teacherService.updateProfile(parseId(path.get(1)), body));
-            return;
-        }
-        if (is(path, "resumes") && "GET".equals(method)) {
-            Response.json(exchange, 200, teacherService.listResumes());
-            return;
-        }
-        if (is(path, "resumes") && "POST".equals(method)) {
-            Response.json(exchange, 201, teacherService.submitResume(body));
-            return;
-        }
-        if (path.size() == 3 && "resumes".equals(path.get(0)) && "status".equals(path.get(2)) && !"GET".equals(method)) {
-            Response.json(exchange, 200, teacherService.updateResumeStatus(parseId(path.get(1)), (int) Json.longValue(body, "status", 1)));
-            return;
-        }
-        if (is(path, "orders") && "GET".equals(method)) {
-            Response.json(exchange, 200, courseService.listOrders(parseLong(query.get("teacherId"), 0)));
-            return;
-        }
-        if (path.size() == 3 && "orders".equals(path.get(0)) && "records".equals(path.get(2)) && "POST".equals(method)) {
-            Response.json(exchange, 201, courseService.createRecord(parseId(path.get(1)), body));
-            return;
-        }
-        if (is(path, "records") && "GET".equals(method)) {
-            Response.json(exchange, 200, courseService.listRecords(parseLong(query.get("orderId"), 0)));
-            return;
-        }
-        if (is(path, "feedbacks") && "GET".equals(method)) {
-            Response.json(exchange, 200, feedbackService.listFeedbacks());
-            return;
-        }
-        if (is(path, "feedbacks") && "POST".equals(method)) {
-            Response.json(exchange, 201, feedbackService.createFeedback(body));
-            return;
-        }
-        if (is(path, "notifications") && "GET".equals(method)) {
-            Response.json(exchange, 200, notificationService.list(parseLong(query.get("userId"), 0)));
-            return;
+        for (ApiController controller : controllers) {
+            if (controller.handle(request, exchange)) {
+                return;
+            }
         }
 
-        Response.error(exchange, 404, "接口不存在");
+        Response.error(exchange, 404, ErrorCode.ROUTE_NOT_FOUND, "接口不存在");
     }
 
     private List<String> pathSegments(HttpExchange exchange) {
@@ -204,38 +151,28 @@ public class ApiRouter implements HttpHandler {
         return Json.parseObject(text);
     }
 
-    private boolean is(List<String> path, String... expected) {
-        if (path.size() != expected.length) {
-            return false;
-        }
-        for (int i = 0; i < expected.length; i++) {
-            if (!expected[i].equals(path.get(i))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private String decode(String value) {
         return URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 
-    private long parseId(String value) {
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("ID格式不正确");
+    private String traceId(HttpExchange exchange) {
+        String requestId = exchange.getRequestHeaders().getFirst("X-Request-Id");
+        if (requestId == null || requestId.isBlank()) {
+            return UUID.randomUUID().toString();
         }
+        return requestId.trim();
     }
 
-    private long parseLong(String value, long fallback) {
-        if (value == null || value.isBlank()) {
-            return fallback;
-        }
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            return fallback;
-        }
+    private void log(HttpExchange exchange, long start, String message) {
+        long elapsedMs = Math.max(0, (System.nanoTime() - start) / 1_000_000);
+        Object status = exchange.getAttribute(STATUS_ATTRIBUTE);
+        System.out.println(Json.stringify(Json.object(
+                "traceId", exchange.getAttribute(TRACE_ATTRIBUTE),
+                "method", exchange.getRequestMethod(),
+                "path", exchange.getRequestURI().getPath(),
+                "status", status == null ? 0 : status,
+                "elapsedMs", elapsedMs,
+                "message", message == null ? "" : message
+        )));
     }
 }

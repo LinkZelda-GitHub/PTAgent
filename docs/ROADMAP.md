@@ -289,6 +289,11 @@ components/
 - 已抽象 `Repository` 接口，服务层依赖接口而不是内存实现。
 - 已为 `DemandService` 和 `ApplicationService` 增加零外部依赖服务层测试。
 - 已增加 `scripts/test.ps1`，用于本地编译并运行核心服务测试。
+- 已将 `ApiRouter` 的业务路径拆分为轻量 controller，并增加统一错误码响应。
+- 已将前端 `app.js` 拆分为 API、状态、数据、渲染、事件和视图工具模块，并增加筛选条件持久化与提交中状态。
+- 已支持按照 `example.xlsx` 的分区订单格式导入需求数据，并在 README 中补充标准 xlsx 格式示例。
+- 已为需求广场增加可用地图能力：默认本地坐标板，可选高德 JavaScript API 真实地图。
+- 已新增开发备忘录，记录高德 Key 生产化处理；并补充 `/actuator/health`、`X-Request-Id` 与基础访问日志。
 
 不建议过早投入：
 

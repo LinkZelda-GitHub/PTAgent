@@ -7,6 +7,8 @@ import com.ptagent.domain.Demand;
 import com.ptagent.domain.DemandApplication;
 import com.ptagent.domain.DemandStatus;
 import com.ptagent.domain.TeacherProfile;
+import com.ptagent.exception.ApiException;
+import com.ptagent.exception.ErrorCode;
 import com.ptagent.repository.Repository;
 
 import java.time.LocalDateTime;
@@ -34,20 +36,20 @@ public class ApplicationService {
         long teacherId = Json.longValue(body, "teacherId", 0);
         String selfIntro = Json.str(body, "selfIntro");
         if (teacherId == 0) {
-            throw new IllegalArgumentException("教师ID不能为空");
+            throw ApiException.badRequest(ErrorCode.VALIDATION_ERROR, "教师ID不能为空");
         }
         if (selfIntro.isBlank()) {
-            throw new IllegalArgumentException("自荐说明不能为空");
+            throw ApiException.badRequest(ErrorCode.VALIDATION_ERROR, "自荐说明不能为空");
         }
         Demand demand = repository.findDemand(demandId)
-                .orElseThrow(() -> new IllegalArgumentException("需求不存在"));
+                .orElseThrow(() -> ApiException.notFound(ErrorCode.DEMAND_NOT_FOUND, "需求不存在"));
         if (demand.status != DemandStatus.OPEN) {
-            throw new IllegalArgumentException("当前需求不可申请");
+            throw ApiException.badRequest(ErrorCode.DEMAND_INVALID_STATUS, "当前需求不可申请");
         }
         repository.findProfile(teacherId)
-                .orElseThrow(() -> new IllegalArgumentException("教师资料不存在"));
+                .orElseThrow(() -> ApiException.notFound(ErrorCode.TEACHER_PROFILE_NOT_FOUND, "教师资料不存在"));
         if (repository.findApplicationByDemandAndTeacher(demandId, teacherId).isPresent()) {
-            throw new IllegalArgumentException("你已申请过该需求");
+            throw ApiException.badRequest(ErrorCode.APPLICATION_DUPLICATED, "你已申请过该需求");
         }
         DemandApplication application = repository.createApplication(demandId, teacherId, selfIntro);
         repository.createNotification(teacherId, "申请已提交", demand.grade + demand.subject + " 需求已进入管理员审核。");
@@ -56,9 +58,16 @@ public class ApplicationService {
 
     public Map<String, Object> review(long applicationId, Map<String, Object> body) {
         DemandApplication application = repository.findApplication(applicationId)
-                .orElseThrow(() -> new IllegalArgumentException("申请不存在"));
-        ApplicationStatus next = "APPROVED".equalsIgnoreCase(Json.str(body, "status"))
-                ? ApplicationStatus.APPROVED : ApplicationStatus.REJECTED;
+                .orElseThrow(() -> ApiException.notFound(ErrorCode.APPLICATION_NOT_FOUND, "申请不存在"));
+        String status = Json.str(body, "status");
+        ApplicationStatus next;
+        if ("APPROVED".equalsIgnoreCase(status)) {
+            next = ApplicationStatus.APPROVED;
+        } else if ("REJECTED".equalsIgnoreCase(status)) {
+            next = ApplicationStatus.REJECTED;
+        } else {
+            throw ApiException.badRequest(ErrorCode.VALIDATION_ERROR, "审核状态不正确");
+        }
         long adminId = Json.longValue(body, "adminId", 0);
         application.status = next;
         application.confirmAdminId = adminId;
@@ -66,7 +75,7 @@ public class ApplicationService {
         repository.saveApplication(application);
 
         Demand demand = repository.findDemand(application.demandId)
-                .orElseThrow(() -> new IllegalArgumentException("需求不存在"));
+                .orElseThrow(() -> ApiException.notFound(ErrorCode.DEMAND_NOT_FOUND, "需求不存在"));
         TeacherProfile teacher = repository.findProfile(application.teacherId).orElse(null);
         if (next == ApplicationStatus.APPROVED) {
             demand.status = DemandStatus.TEACHING;

@@ -36,7 +36,13 @@ public class DashboardService {
     }
 
     public List<String> subjects() {
-        return List.of("语文", "数学", "英语", "物理", "化学", "生物", "历史", "地理", "政治", "奥数", "编程", "钢琴", "美术");
+        List<String> subjects = new java.util.ArrayList<>(List.of("语文", "数学", "英语", "物理", "化学", "生物", "历史",
+                "地理", "政治", "奥数", "编程", "钢琴", "美术", "体育"));
+        repository.allDemands().stream()
+                .map(demand -> demand.subject)
+                .filter(subject -> subject != null && !subject.isBlank() && !subjects.contains(subject))
+                .forEach(subjects::add);
+        return subjects;
     }
 
     public List<String> grades() {
@@ -45,10 +51,22 @@ public class DashboardService {
     }
 
     public List<String> regions() {
-        return List.of("天河区", "越秀区", "海珠区", "荔湾区", "番禺区");
+        List<String> regions = new java.util.ArrayList<>(List.of("天河区", "越秀区", "海珠区", "荔湾区", "番禺区",
+                "南山区", "宝安区", "龙岗区", "罗湖区", "龙华区", "盐田区", "光明区", "观澜区", "福田区"));
+        repository.allDemands().stream()
+                .map(demand -> demand.region)
+                .filter(region -> region != null && !region.isBlank() && !regions.contains(region))
+                .forEach(regions::add);
+        return regions;
     }
 
     public List<String> tags() {
-        return List.of("985", "211", "重本", "师范类", "有竞赛经验", "有教师资格证");
+        List<String> tags = new java.util.ArrayList<>(List.of("985", "211", "重本", "师范类", "有竞赛经验", "有教师资格证",
+                "经验丰富", "女大学生优先", "男大学生优先"));
+        repository.allDemands().stream()
+                .flatMap(demand -> demand.allTags().stream())
+                .filter(tag -> tag != null && !tag.isBlank() && !tags.contains(tag))
+                .forEach(tags::add);
+        return tags;
     }
 }

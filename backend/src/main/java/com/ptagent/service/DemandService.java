@@ -4,6 +4,8 @@ import com.ptagent.common.Json;
 import com.ptagent.domain.Demand;
 import com.ptagent.domain.DemandStatus;
 import com.ptagent.domain.TeacherProfile;
+import com.ptagent.exception.ApiException;
+import com.ptagent.exception.ErrorCode;
 import com.ptagent.repository.Repository;
 
 import java.time.LocalDateTime;
@@ -86,7 +88,7 @@ public class DemandService {
 
     public Map<String, Object> getDemand(long id, long teacherId) {
         Demand demand = repository.findDemand(id)
-                .orElseThrow(() -> new IllegalArgumentException("需求不存在"));
+                .orElseThrow(() -> ApiException.notFound(ErrorCode.DEMAND_NOT_FOUND, "需求不存在"));
         TeacherProfile profile = repository.findProfile(teacherId).orElse(null);
         double distance = distanceKm(DEFAULT_TEACHER_LAT, DEFAULT_TEACHER_LON, demand.latitude, demand.longitude);
         return demand.toMap(round1(distance), matchScore(profile, demand, distance));
@@ -105,9 +107,16 @@ public class DemandService {
         demand.subject = required(body, "subject", "科目不能为空");
         demand.grade = required(body, "grade", "年级不能为空");
         demand.teacherGender = (int) Json.longValue(body, "teacherGender", 3);
+        if (demand.teacherGender < 1 || demand.teacherGender > 3) {
+            throw ApiException.badRequest(ErrorCode.VALIDATION_ERROR, "教师性别要求不正确");
+        }
         demand.basicScore = Json.str(body, "basicScore");
         demand.salaryMin = (int) Json.longValue(body, "salaryMin", 0);
         demand.salaryMax = (int) Json.longValue(body, "salaryMax", 0);
+        if (demand.salaryMin < 0 || demand.salaryMax < 0 || (demand.salaryMin > 0 && demand.salaryMax > 0
+                && demand.salaryMin > demand.salaryMax)) {
+            throw ApiException.badRequest(ErrorCode.VALIDATION_ERROR, "薪酬范围不正确");
+        }
         demand.salaryRange = Json.str(body, "salaryRange");
         if (demand.salaryRange.isBlank() && demand.salaryMin > 0 && demand.salaryMax > 0) {
             demand.salaryRange = demand.salaryMin + "-" + demand.salaryMax + "元/小时";
@@ -123,7 +132,7 @@ public class DemandService {
 
     public Map<String, Object> closeDemand(long demandId) {
         Demand demand = repository.findDemand(demandId)
-                .orElseThrow(() -> new IllegalArgumentException("需求不存在"));
+                .orElseThrow(() -> ApiException.notFound(ErrorCode.DEMAND_NOT_FOUND, "需求不存在"));
         demand.status = DemandStatus.CLOSED;
         demand.closeTime = LocalDateTime.now();
         repository.saveDemand(demand);
@@ -204,7 +213,7 @@ public class DemandService {
     private String required(Map<String, Object> body, String key, String message) {
         String value = Json.str(body, key);
         if (value.isBlank()) {
-            throw new IllegalArgumentException(message);
+            throw ApiException.badRequest(ErrorCode.VALIDATION_ERROR, message);
         }
         return value;
     }

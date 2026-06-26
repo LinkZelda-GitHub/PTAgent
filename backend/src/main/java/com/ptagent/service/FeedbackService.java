@@ -3,6 +3,8 @@ package com.ptagent.service;
 import com.ptagent.common.Json;
 import com.ptagent.domain.CourseOrder;
 import com.ptagent.domain.Feedback;
+import com.ptagent.exception.ApiException;
+import com.ptagent.exception.ErrorCode;
 import com.ptagent.repository.Repository;
 
 import java.util.Comparator;
@@ -27,9 +29,9 @@ public class FeedbackService {
         long orderId = Json.longValue(body, "orderId", 0);
         int score = (int) Json.longValue(body, "ratingScore", 5);
         if (score < 1 || score > 5) {
-            throw new IllegalArgumentException("评分必须在1-5之间");
+            throw ApiException.badRequest(ErrorCode.FEEDBACK_INVALID_SCORE, "评分必须在1-5之间");
         }
-        repository.findOrder(orderId).orElseThrow(() -> new IllegalArgumentException("课程订单不存在"));
+        repository.findOrder(orderId).orElseThrow(() -> ApiException.notFound(ErrorCode.ORDER_NOT_FOUND, "课程订单不存在"));
         Feedback feedback = repository.createFeedback(orderId, score, Json.str(body, "commentText"),
                 (int) Json.longValue(body, "feedbackSource", 1),
                 Json.longValue(body, "submitAdminId", 0));

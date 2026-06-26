@@ -33,6 +33,16 @@ http://localhost:8080
 .\scripts\run.ps1 -Port 8090
 ```
 
+## 健康检查
+
+启动后可检查服务状态：
+
+```powershell
+Invoke-RestMethod http://localhost:8080/actuator/health
+```
+
+API 响应头会包含 `X-Request-Id`。如果调用方传入同名请求头，服务端会沿用该值，便于和控制台访问日志关联。
+
 ## 只编译
 
 ```powershell

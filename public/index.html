@@ -94,6 +94,12 @@
             </select>
           </div>
         </div>
+        <div class="map-settings" aria-label="地图设置">
+          <input id="amapKey" autocomplete="off" placeholder="高德 Web Key" aria-label="高德 Web Key">
+          <input id="amapSecurityCode" autocomplete="off" placeholder="安全密钥" aria-label="高德安全密钥">
+          <button type="button" class="ghost-btn" data-action="save-map-config">启用高德</button>
+          <button type="button" class="mini-btn" data-action="clear-map-config">本地地图</button>
+        </div>
         <div class="plaza-layout">
           <div class="map-board" id="mapBoard" aria-label="需求位置分布"></div>
           <div class="demand-grid" id="demandGrid"></div>
@@ -104,6 +110,13 @@
         <div class="section-heading">
           <h2>需求发布与管理</h2>
         </div>
+        <form class="tool-surface form-grid compact" id="importDemandForm">
+          <label>需求 XLSX 路径<input name="filePath" value="example.xlsx" required></label>
+          <button type="submit" class="primary-btn" title="导入需求">
+            <span aria-hidden="true">↑</span>
+            导入 XLSX
+          </button>
+        </form>
         <form class="tool-surface form-grid" id="demandForm">
           <label>家长姓名<input name="parentName" required value="赵女士"></label>
           <label>联系电话<input name="parentPhone" required value="13900001111"></label>
@@ -148,7 +161,7 @@
 
       <section class="view" id="view-applications">
         <div class="section-heading">
-          <h2>匹配审核</h2>
+          <h2>申请记录与匹配审核</h2>
         </div>
         <div class="application-list" id="applicationList"></div>
       </section>
@@ -246,6 +259,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="/app.js"></script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>

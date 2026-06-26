@@ -2,22 +2,37 @@ package com.ptagent;
 
 import com.ptagent.domain.ApplicationStatus;
 import com.ptagent.domain.DemandStatus;
+import com.ptagent.exception.ApiException;
+import com.ptagent.exception.ErrorCode;
 import com.ptagent.repository.AppRepository;
 import com.ptagent.repository.Repository;
 import com.ptagent.service.ApplicationService;
+import com.ptagent.service.AuthService;
+import com.ptagent.service.DemandImportService;
 import com.ptagent.service.DemandService;
 
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public class ServiceTests {
     public static void main(String[] args) {
+        run("AuthService returns stable invalid password code", ServiceTests::authInvalidPasswordCode);
         run("DemandService filters by subject and calculates match score", ServiceTests::demandFiltersAndScores);
         run("DemandService rejects invalid demand payloads", ServiceTests::demandValidation);
+        run("DemandImportService imports xlsx order format", ServiceTests::demandXlsxImport);
         run("ApplicationService blocks duplicated applications", ServiceTests::applicationDuplicateGuard);
         run("ApplicationService approval creates order and updates demand", ServiceTests::applicationApprovalCreatesOrder);
         System.out.println("All service tests passed.");
+    }
+
+    private static void authInvalidPasswordCode() {
+        Repository repository = new AppRepository();
+        AuthService authService = new AuthService(repository);
+
+        expectApiException(ErrorCode.AUTH_INVALID_PASSWORD, "密码不正确",
+                () -> authService.login("teacher", "wrong-password"));
     }
 
     private static void demandFiltersAndScores() {
@@ -41,7 +56,7 @@ public class ServiceTests {
         Repository repository = new AppRepository();
         DemandService demandService = new DemandService(repository);
 
-        expectThrows("家长姓名不能为空", () -> demandService.createDemand(body(
+        expectApiException(ErrorCode.VALIDATION_ERROR, "家长姓名不能为空", () -> demandService.createDemand(body(
                 "adminId", 101L,
                 "parentPhone", "13900009999",
                 "address", "天河区测试地址",
@@ -49,6 +64,24 @@ public class ServiceTests {
                 "subject", "数学",
                 "grade", "高一"
         )));
+    }
+
+    private static void demandXlsxImport() {
+        Repository repository = new AppRepository();
+        DemandImportService importService = new DemandImportService(repository);
+        int before = repository.allDemands().size();
+
+        Map<String, Object> result = importService.importDemandXlsx(Path.of("example.xlsx"), 101L);
+        long importedCount = number(result.get("importedCount"));
+
+        assertTrue(importedCount > 0, "example.xlsx应至少导入一条需求");
+        assertEquals(before + importedCount, (long) repository.allDemands().size());
+        assertTrue(repository.allDemands().stream().anyMatch(demand ->
+                demand.remark != null && demand.remark.contains("订单号：")), "导入需求应保留订单号");
+
+        Map<String, Object> duplicated = importService.importDemandXlsx(Path.of("example.xlsx"), 101L);
+        assertEquals(0L, number(duplicated.get("importedCount")));
+        assertTrue(number(duplicated.get("skippedCount")) >= importedCount, "重复导入应按订单号跳过");
     }
 
     private static void applicationDuplicateGuard() {
@@ -61,7 +94,8 @@ public class ServiceTests {
         );
 
         applicationService.apply(300L, request);
-        expectThrows("你已申请过该需求", () -> applicationService.apply(300L, request));
+        expectApiException(ErrorCode.APPLICATION_DUPLICATED, "你已申请过该需求",
+                () -> applicationService.apply(300L, request));
     }
 
     private static void applicationApprovalCreatesOrder() {
@@ -125,15 +159,16 @@ public class ServiceTests {
         }
     }
 
-    private static void expectThrows(String messagePart, TestCase test) {
+    private static void expectApiException(ErrorCode code, String messagePart, TestCase test) {
         try {
             test.run();
-        } catch (IllegalArgumentException e) {
+        } catch (ApiException e) {
+            assertEquals(code, e.code());
             assertTrue(e.getMessage().contains(messagePart),
                     "Expected error containing " + messagePart + " but got " + e.getMessage());
             return;
         }
-        throw new AssertionError("Expected IllegalArgumentException containing: " + messagePart);
+        throw new AssertionError("Expected ApiException " + code + " containing: " + messagePart);
     }
 
     private static void assertEquals(Object expected, Object actual) {

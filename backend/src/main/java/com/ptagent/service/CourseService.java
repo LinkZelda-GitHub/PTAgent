@@ -3,6 +3,8 @@ package com.ptagent.service;
 import com.ptagent.common.Json;
 import com.ptagent.domain.CourseOrder;
 import com.ptagent.domain.TeachingRecord;
+import com.ptagent.exception.ApiException;
+import com.ptagent.exception.ErrorCode;
 import com.ptagent.repository.Repository;
 
 import java.time.LocalDate;
@@ -35,7 +37,7 @@ public class CourseService {
     }
 
     public Map<String, Object> createRecord(long orderId, Map<String, Object> body) {
-        repository.findOrder(orderId).orElseThrow(() -> new IllegalArgumentException("课程订单不存在"));
+        repository.findOrder(orderId).orElseThrow(() -> ApiException.notFound(ErrorCode.ORDER_NOT_FOUND, "课程订单不存在"));
         LocalDate lessonDate = Json.str(body, "lessonDate").isBlank()
                 ? LocalDate.now() : LocalDate.parse(Json.str(body, "lessonDate"));
         TeachingRecord record = repository.createTeachingRecord(orderId,

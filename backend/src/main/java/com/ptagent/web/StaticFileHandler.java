@@ -1,5 +1,6 @@
 package com.ptagent.web;
 
+import com.ptagent.exception.ErrorCode;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
@@ -18,7 +19,7 @@ public class StaticFileHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-            Response.error(exchange, 405, "仅支持GET");
+            Response.error(exchange, 405, ErrorCode.METHOD_NOT_ALLOWED, "仅支持GET");
             return;
         }
         String requestPath = exchange.getRequestURI().getPath();
@@ -27,7 +28,7 @@ public class StaticFileHandler implements HttpHandler {
         }
         Path file = publicDir.resolve(requestPath.substring(1)).normalize();
         if (!file.startsWith(publicDir)) {
-            Response.error(exchange, 403, "路径不可访问");
+            Response.error(exchange, 403, ErrorCode.PATH_FORBIDDEN, "路径不可访问");
             return;
         }
         if (!Files.exists(file) || Files.isDirectory(file)) {

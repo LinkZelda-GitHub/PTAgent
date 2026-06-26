@@ -5,6 +5,8 @@ import com.ptagent.common.Passwords;
 import com.ptagent.domain.RoleType;
 import com.ptagent.domain.TeacherProfile;
 import com.ptagent.domain.User;
+import com.ptagent.exception.ApiException;
+import com.ptagent.exception.ErrorCode;
 import com.ptagent.repository.Repository;
 
 import java.time.LocalDateTime;
@@ -20,12 +22,12 @@ public class AuthService {
 
     public Map<String, Object> login(String username, String password) {
         User user = repository.findUserByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("账号不存在"));
+                .orElseThrow(() -> ApiException.badRequest(ErrorCode.AUTH_USER_NOT_FOUND, "账号不存在"));
         if (!user.enabled) {
-            throw new IllegalArgumentException("账号已被禁用");
+            throw ApiException.badRequest(ErrorCode.AUTH_DISABLED, "账号已被禁用");
         }
         if (!Passwords.matches(password, user.passwordHash)) {
-            throw new IllegalArgumentException("密码不正确");
+            throw ApiException.badRequest(ErrorCode.AUTH_INVALID_PASSWORD, "密码不正确");
         }
         user.lastLogin = LocalDateTime.now();
         repository.saveUser(user);
@@ -39,7 +41,7 @@ public class AuthService {
         String username = required(body, "username", "用户名不能为空");
         String password = required(body, "password", "密码不能为空");
         if (repository.findUserByUsername(username).isPresent()) {
-            throw new IllegalArgumentException("用户名已存在");
+            throw ApiException.badRequest(ErrorCode.AUTH_USERNAME_EXISTS, "用户名已存在");
         }
         User user = repository.createUser(username, password, RoleType.TEACHER,
                 Json.str(body, "phoneNumber"), Json.str(body, "email"), false);
@@ -66,7 +68,7 @@ public class AuthService {
     private String required(Map<String, Object> body, String key, String message) {
         String value = Json.str(body, key);
         if (value.isBlank()) {
-            throw new IllegalArgumentException(message);
+            throw ApiException.badRequest(ErrorCode.VALIDATION_ERROR, message);
         }
         return value;
     }
