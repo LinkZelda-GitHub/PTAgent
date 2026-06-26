@@ -1,7 +1,7 @@
-import { api, getAuthToken, queryString, setAuthToken } from "./api.js";
-import { renderDemoAccounts } from "./render.js";
-import { defaultTab, filterIds, state } from "./state.js";
-import { $, fillMultiSelect, fillSelect } from "./view.js";
+import { api, getAuthToken, queryString, setAuthToken } from "./api.js?v=20260627-4";
+import { renderDemoAccounts } from "./render.js?v=20260627-4";
+import { defaultTab, filterIds, state } from "./state.js?v=20260627-4";
+import { $, fillMultiSelect, fillSelect } from "./view.js?v=20260627-4";
 
 const FILTERS_KEY = "ptagent-demand-filters";
 

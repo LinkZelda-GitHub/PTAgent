@@ -1,7 +1,7 @@
-import { loadBootstrap, restoreSession } from "./js/data.js";
-import { attachEvents } from "./js/events.js";
-import { render } from "./js/render.js";
-import { applySidebar, applyTheme, preferredSidebar, preferredTheme, toast } from "./js/view.js?v=20260627-3";
+import { loadBootstrap, restoreSession } from "./js/data.js?v=20260627-4";
+import { attachEvents } from "./js/events.js?v=20260627-4";
+import { render } from "./js/render.js?v=20260627-4";
+import { applySidebar, applyTheme, preferredSidebar, preferredTheme, toast } from "./js/view.js?v=20260627-4";
 
 async function init() {
   applyTheme(preferredTheme());

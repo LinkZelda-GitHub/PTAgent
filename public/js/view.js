@@ -1,4 +1,4 @@
-import { state } from "./state.js";
+import { state } from "./state.js?v=20260627-4";
 
 const THEME_KEY = "ptagent-theme-v2";
 

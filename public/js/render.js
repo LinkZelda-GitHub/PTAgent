@@ -1,12 +1,11 @@
-import { renderDemandMap } from "./map.js";
-import { shortcuts, state, tabs } from "./state.js";
-import { $, formatDateTime, html } from "./view.js";
+import { renderDemandMap } from "./map.js?v=20260627-4";
+import { state, tabs } from "./state.js?v=20260627-4";
+import { $, formatDateTime, html } from "./view.js?v=20260627-4";
 
 export function render() {
   renderAuthState();
   renderNav();
   renderHeader();
-  renderStats();
   renderNotifications();
   renderPlaza();
   renderAdminDemands();
@@ -36,7 +35,9 @@ function renderNav() {
   $("#navList").innerHTML = allowed.map((tab) => `
     <button type="button" class="nav-btn ${tab.id === state.currentTab ? "is-active" : ""}"
       data-action="nav" data-tab="${html(tab.id)}" title="${html(tab.label)}">
-      <span class="nav-icon" aria-hidden="true">${html(tab.icon)}</span>
+      <span class="nav-icon" aria-hidden="true">
+        <img src="${html(tab.icon)}" alt="" width="21" height="21">
+      </span>
       <span class="nav-label">${html(tab.label)}</span>
     </button>
   `).join("");
@@ -68,22 +69,6 @@ function renderHeader() {
       <small>${html(state.user.roleLabel)}</small>
     </span>
   ` : "";
-}
-
-function renderStats() {
-  if (!state.user) {
-    $("#statsGrid").innerHTML = "";
-    return;
-  }
-  $("#statsGrid").innerHTML = shortcuts.map((shortcut) => {
-    const tab = shortcut.tab || (state.user.role === "TEACHER" ? shortcut.teacherTab : shortcut.adminTab);
-    return `
-    <button type="button" class="shortcut-button" data-action="nav" data-tab="${html(tab)}"
-      data-tooltip="${html(shortcut.description)}" aria-label="${html(shortcut.description)}">
-      <img src="${html(shortcut.icon)}" alt="" width="22" height="22" aria-hidden="true">
-    </button>
-  `;
-  }).join("");
 }
 
 function renderNotifications() {
