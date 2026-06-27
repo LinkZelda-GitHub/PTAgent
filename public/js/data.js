@@ -1,7 +1,7 @@
-import { api, getAuthToken, queryString, setAuthToken } from "./api.js?v=20260627-4";
-import { renderDemoAccounts } from "./render.js?v=20260627-4";
-import { defaultTab, filterIds, state } from "./state.js?v=20260627-4";
-import { $, fillMultiSelect, fillSelect } from "./view.js?v=20260627-4";
+import { api, getAuthToken, queryString, setAuthToken } from "./api.js?v=20260627-6";
+import { renderDemoAccounts } from "./render.js?v=20260627-6";
+import { defaultTab, filterIds, state } from "./state.js?v=20260627-6";
+import { $, fillMultiSelect, fillSelect } from "./view.js?v=20260627-6";
 
 const FILTERS_KEY = "ptagent-demand-filters";
 
@@ -26,6 +26,10 @@ export async function login(username, password) {
   state.profile = data.profile || null;
   state.currentTab = defaultTab();
   await refreshAll();
+}
+
+export async function registerTeacher(body) {
+  return api("/auth/register-teacher", { method: "POST", body });
 }
 
 export async function restoreSession() {

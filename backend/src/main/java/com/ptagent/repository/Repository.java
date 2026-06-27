@@ -17,6 +17,14 @@ import java.util.List;
 import java.util.Optional;
 
 public interface Repository {
+    default String storageType() {
+        return "memory";
+    }
+
+    default String storageLocation() {
+        return "";
+    }
+
     User createUser(String username, String password, RoleType role, String phone, String email, boolean enabled);
 
     Optional<User> findUser(long id);

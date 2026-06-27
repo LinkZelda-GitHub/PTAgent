@@ -13,6 +13,8 @@ import com.ptagent.service.CourseService;
 import com.ptagent.service.DemandImportService;
 import com.ptagent.service.DemandService;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,6 +24,7 @@ public class ServiceTests {
     public static void main(String[] args) {
         run("AuthService returns stable invalid password code", ServiceTests::authInvalidPasswordCode);
         run("AuthService creates, restores and revokes sessions", ServiceTests::authSessionLifecycle);
+        run("Teacher registration persists account and profile", ServiceTests::teacherRegistrationPersists);
         run("DemandService filters by subject and calculates match score", ServiceTests::demandFiltersAndScores);
         run("DemandService rejects invalid demand payloads", ServiceTests::demandValidation);
         run("DemandImportService imports xlsx order format", ServiceTests::demandXlsxImport);
@@ -34,7 +37,7 @@ public class ServiceTests {
     }
 
     private static void authInvalidPasswordCode() {
-        Repository repository = new AppRepository();
+        Repository repository = new AppRepository(false);
         AuthService authService = new AuthService(repository);
 
         expectApiException(ErrorCode.AUTH_INVALID_PASSWORD, "密码不正确",
@@ -42,7 +45,7 @@ public class ServiceTests {
     }
 
     private static void authSessionLifecycle() {
-        Repository repository = new AppRepository();
+        Repository repository = new AppRepository(false);
         AuthService authService = new AuthService(repository);
 
         Map<String, Object> login = authService.login("teacher", "teacher123");
@@ -58,8 +61,57 @@ public class ServiceTests {
                 () -> authService.currentSession(token));
     }
 
+    private static void teacherRegistrationPersists() {
+        Path directory = null;
+        try {
+            directory = Files.createTempDirectory("ptagent-account-test");
+            Repository repository = new AppRepository(directory);
+            AuthService authService = new AuthService(repository);
+            Map<String, Object> registered = authService.registerTeacher(body(
+                    "username", "new_teacher",
+                    "password", "Strong123",
+                    "realName", "测试教师",
+                    "gender", 2,
+                    "phoneNumber", "13912345678",
+                    "email", "new_teacher@example.com",
+                    "education", "本科",
+                    "graduateSchool", "测试大学",
+                    "subjects", List.of("数学", "物理"),
+                    "serviceArea", List.of("天河区"),
+                    "hasTeacherCert", true,
+                    "personalIntro", "擅长理科基础巩固。"
+            ));
+
+            assertEquals("PENDING_REVIEW", registered.get("status"));
+            long teacherId = number(castMap(registered.get("user")).get("id"));
+            assertTrue(!repository.findUser(teacherId).orElseThrow().enabled, "新注册教师应等待审核");
+
+            Repository reloaded = new AppRepository(directory);
+            assertEquals("测试教师", reloaded.findProfile(teacherId).orElseThrow().realName);
+            assertEquals(List.of("数学", "物理"), reloaded.findProfile(teacherId).orElseThrow().subjects);
+            expectApiException(ErrorCode.AUTH_DISABLED, "账号已被禁用",
+                    () -> new AuthService(reloaded).login("new_teacher", "Strong123"));
+
+            String database = Files.readString(directory.resolve("ptagent-accounts.json"));
+            assertTrue(database.contains("passwordHash"), "账号数据库应保存密码哈希");
+            assertTrue(!database.contains("Strong123"), "账号数据库不得保存明文密码");
+        } catch (IOException exception) {
+            throw new RuntimeException(exception);
+        } finally {
+            if (directory != null) {
+                try {
+                    Files.deleteIfExists(directory.resolve("ptagent-accounts.json.tmp"));
+                    Files.deleteIfExists(directory.resolve("ptagent-accounts.json"));
+                    Files.deleteIfExists(directory);
+                } catch (IOException exception) {
+                    throw new RuntimeException(exception);
+                }
+            }
+        }
+    }
+
     private static void demandFiltersAndScores() {
-        Repository repository = new AppRepository();
+        Repository repository = new AppRepository(false);
         DemandService demandService = new DemandService(repository);
 
         List<Map<String, Object>> demands = demandService.listDemands(query(
@@ -76,7 +128,7 @@ public class ServiceTests {
     }
 
     private static void demandValidation() {
-        Repository repository = new AppRepository();
+        Repository repository = new AppRepository(false);
         DemandService demandService = new DemandService(repository);
 
         expectApiException(ErrorCode.VALIDATION_ERROR, "家长姓名不能为空", () -> demandService.createDemand(body(
@@ -90,7 +142,7 @@ public class ServiceTests {
     }
 
     private static void demandXlsxImport() {
-        Repository repository = new AppRepository();
+        Repository repository = new AppRepository(false);
         DemandImportService importService = new DemandImportService(repository);
         int before = repository.allDemands().size();
 
@@ -108,7 +160,7 @@ public class ServiceTests {
     }
 
     private static void applicationDuplicateGuard() {
-        Repository repository = new AppRepository();
+        Repository repository = new AppRepository(false);
         ApplicationService applicationService = new ApplicationService(repository);
 
         Map<String, Object> request = body(
@@ -122,7 +174,7 @@ public class ServiceTests {
     }
 
     private static void accessGuardRejectsTeacherAdminActions() {
-        Repository repository = new AppRepository();
+        Repository repository = new AppRepository(false);
         DemandService demandService = new DemandService(repository);
 
         expectApiException(ErrorCode.ACCESS_DENIED, "permission denied", () -> demandService.createDemand(body(
@@ -137,7 +189,7 @@ public class ServiceTests {
     }
 
     private static void applicationApprovalCreatesOrder() {
-        Repository repository = new AppRepository();
+        Repository repository = new AppRepository(false);
         ApplicationService applicationService = new ApplicationService(repository);
         int orderCount = repository.allOrders().size();
 
@@ -165,7 +217,7 @@ public class ServiceTests {
     }
 
     private static void auditLogsCriticalOperations() {
-        Repository repository = new AppRepository();
+        Repository repository = new AppRepository(false);
         ApplicationService applicationService = new ApplicationService(repository);
         AuditService auditService = new AuditService(repository);
 
@@ -181,7 +233,7 @@ public class ServiceTests {
     }
 
     private static void courseRecordRequiresOrderTeacher() {
-        Repository repository = new AppRepository();
+        Repository repository = new AppRepository(false);
         CourseService courseService = new CourseService(repository);
 
         expectApiException(ErrorCode.ACCESS_DENIED, "permission denied", () -> courseService.createRecord(500L, body(
@@ -215,6 +267,11 @@ public class ServiceTests {
             return number.longValue();
         }
         throw new AssertionError("Expected number but got: " + value);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> castMap(Object value) {
+        return (Map<String, Object>) value;
     }
 
     private static void run(String name, TestCase test) {

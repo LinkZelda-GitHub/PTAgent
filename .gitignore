@@ -1,1 +1,3 @@
 /build/test-classes/
+/data/*.json
+/data/*.tmp

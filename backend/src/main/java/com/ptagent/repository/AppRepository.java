@@ -18,6 +18,7 @@ import com.ptagent.domain.User;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -27,6 +28,8 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class AppRepository implements Repository {
+    private final AccountDatabase accountDatabase;
+    private boolean accountPersistenceReady;
     private final Map<Long, User> users = new LinkedHashMap<>();
     private final Map<Long, TeacherProfile> teacherProfiles = new LinkedHashMap<>();
     private final Map<Long, TeacherResume> teacherResumes = new LinkedHashMap<>();
@@ -49,7 +52,35 @@ public class AppRepository implements Repository {
     private final AtomicLong auditLogIds = new AtomicLong(900);
 
     public AppRepository() {
+        this(new AccountDatabase(AccountDatabase.defaultDirectory()));
+    }
+
+    public AppRepository(boolean persistent) {
+        this(persistent ? new AccountDatabase(AccountDatabase.defaultDirectory()) : null);
+    }
+
+    public AppRepository(Path dataDirectory) {
+        this(new AccountDatabase(dataDirectory));
+    }
+
+    private AppRepository(AccountDatabase accountDatabase) {
+        this.accountDatabase = accountDatabase;
         seed();
+        if (accountDatabase != null) {
+            restoreAccounts(accountDatabase.read());
+            accountPersistenceReady = true;
+            persistAccounts();
+        }
+    }
+
+    @Override
+    public String storageType() {
+        return accountDatabase == null ? "memory" : "file+memory";
+    }
+
+    @Override
+    public String storageLocation() {
+        return accountDatabase == null ? "" : accountDatabase.location();
     }
 
     public synchronized User createUser(String username, String password, RoleType role, String phone, String email, boolean enabled) {
@@ -63,6 +94,7 @@ public class AppRepository implements Repository {
         user.enabled = enabled;
         user.registerTime = LocalDateTime.now();
         users.put(user.id, user);
+        persistAccounts();
         return user;
     }
 
@@ -82,10 +114,12 @@ public class AppRepository implements Repository {
 
     public synchronized void saveUser(User user) {
         users.put(user.id, user);
+        persistAccounts();
     }
 
     public synchronized void saveProfile(TeacherProfile profile) {
         teacherProfiles.put(profile.teacherId, profile);
+        persistAccounts();
     }
 
     public synchronized Optional<TeacherProfile> findProfile(long teacherId) {
@@ -250,6 +284,20 @@ public class AppRepository implements Repository {
         return new ArrayList<>(auditLogs.values());
     }
 
+    private void restoreAccounts(AccountDatabase.Snapshot snapshot) {
+        snapshot.users().forEach(user -> users.put(user.id, user));
+        snapshot.profiles().forEach(profile -> teacherProfiles.put(profile.teacherId, profile));
+        long nextUserId = users.keySet().stream().mapToLong(Long::longValue).max().orElse(99) + 1;
+        userIds.set(Math.max(100, nextUserId));
+    }
+
+    private void persistAccounts() {
+        if (!accountPersistenceReady || accountDatabase == null) {
+            return;
+        }
+        accountDatabase.write(new ArrayList<>(users.values()), new ArrayList<>(teacherProfiles.values()));
+    }
+
     private void recalculateTeacherRating(long orderId) {
         CourseOrder order = orders.get(orderId);
         if (order == null) {
@@ -268,6 +316,7 @@ public class AppRepository implements Repository {
         TeacherProfile profile = teacherProfiles.get(order.teacherId);
         if (profile != null) {
             profile.avgRating = Math.round(average * 10.0) / 10.0;
+            persistAccounts();
         }
     }
 

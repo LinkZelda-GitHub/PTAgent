@@ -16,6 +16,13 @@
 
 `example.xlsx` 已作为当前需求导入格式的样例文件。后续迁移 Spring Boot 后，建议把本地路径导入替换为 multipart 上传，并在服务端保存导入批次、失败行和原始文件归档记录。
 
+## 本地账号数据库
+
+- `data/ptagent-accounts.json` 用于零依赖阶段的账号与教师资料持久化，已加入 `.gitignore`，不得提交真实注册信息。
+- 可用 `PTAGENT_DATA_DIR` 把数据文件迁移到仓库外目录。
+- 当前文件数据库不是 MySQL 的替代品；它不提供多进程并发、复杂查询、备份恢复和字段级迁移。
+- 生产迁移使用 `database/migrations/V1__init.sql`，密码哈希同步升级为 BCrypt/Argon2。
+
 ## 权限与审计
 
 当前零依赖 MVP 已增加服务端内存会话：登录签发 12 小时 Bearer Token，支持 `/api/auth/me` 恢复和 `/api/auth/logout` 失效。业务写操作仍通过请求体或查询参数中的 `adminId`、`teacherId`、`actorId`、`submitAdminId` 表示领域操作者，并用 `AccessGuard` 校验账号启用状态和角色权限。

@@ -1,8 +1,8 @@
-import { api } from "./api.js?v=20260627-4";
-import { clearSession, loadBootstrap, loadDemands, login, logout, persistFilters, refreshAll } from "./data.js?v=20260627-4";
-import { clearMapConfig, fillMapConfigForm, saveMapConfig } from "./map.js?v=20260627-4";
-import { render, renderPlaza } from "./render.js?v=20260627-4";
-import { filterIds, state, tabs } from "./state.js?v=20260627-4";
+import { api } from "./api.js?v=20260627-6";
+import { clearSession, loadBootstrap, loadDemands, login, logout, persistFilters, refreshAll, registerTeacher } from "./data.js?v=20260627-6";
+import { clearMapConfig, fillMapConfigForm, saveMapConfig } from "./map.js?v=20260627-6";
+import { render, renderPlaza } from "./render.js?v=20260627-6";
+import { filterIds, state, tabs } from "./state.js?v=20260627-6";
 import {
   $,
   applySidebar,
@@ -15,13 +15,18 @@ import {
   toast,
   withButtonPending,
   withFormPending
-} from "./view.js?v=20260627-4";
+} from "./view.js?v=20260627-6";
 
 async function handleClick(event) {
   const button = event.target.closest("button[data-action]");
   if (!button || button.disabled) return;
   const action = button.dataset.action;
   try {
+    if (action === "auth-mode") {
+      state.authMode = button.dataset.mode || "login";
+      state.registrationResult = null;
+      render();
+    }
     if (action === "demo-login") {
       $("#loginForm").username.value = button.dataset.username;
       $("#loginForm").password.value = button.dataset.password;
@@ -149,6 +154,43 @@ export function attachEvents() {
       });
       render();
       toast(`已登录：${state.user.roleLabel}`);
+    } catch (error) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+      toast(error.message);
+    }
+  });
+
+  $("#registerForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const errorBox = $("#registerError");
+    errorBox.hidden = true;
+    if (form.password.value !== form.confirmPassword.value) {
+      errorBox.textContent = "两次输入的密码不一致";
+      errorBox.hidden = false;
+      return;
+    }
+    const body = formObject(form);
+    body.gender = Number(body.gender);
+    body.subjects = registrationList(form.subjects.value);
+    body.serviceArea = registrationList(form.serviceArea.value);
+    body.availableTime = registrationList(form.availableTime.value);
+    body.hasTeacherCert = form.hasTeacherCert.checked;
+    body.normalUniversity = form.normalUniversity.checked;
+    body.competitionExperience = form.competitionExperience.checked;
+    delete body.confirmPassword;
+    delete body.agreement;
+    try {
+      let result;
+      await withFormPending(form, async () => {
+        result = await registerTeacher(body);
+      });
+      form.reset();
+      state.registrationResult = result;
+      state.authMode = "registered";
+      render();
+      toast("注册信息已提交");
     } catch (error) {
       errorBox.textContent = error.message;
       errorBox.hidden = false;
@@ -298,4 +340,8 @@ export function attachEvents() {
       toast(error.message);
     }
   });
+}
+
+function registrationList(value) {
+  return String(value || "").split(/[、,，]/).map((item) => item.trim()).filter(Boolean);
 }

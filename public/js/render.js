@@ -1,6 +1,6 @@
-import { renderDemandMap } from "./map.js?v=20260627-4";
-import { state, tabs } from "./state.js?v=20260627-4";
-import { $, formatDateTime, html } from "./view.js?v=20260627-4";
+import { renderDemandMap } from "./map.js?v=20260627-6";
+import { state, tabs } from "./state.js?v=20260627-6";
+import { $, formatDateTime, html } from "./view.js?v=20260627-6";
 
 export function render() {
   renderAuthState();
@@ -60,8 +60,14 @@ function renderAuthState() {
 
 function renderHeader() {
   const tab = tabs.find((item) => item.id === state.currentTab);
-  $("#pageTitle").textContent = state.user ? (tab?.label || "操作台") : "账号登录";
-  $("#currentUser").innerHTML = `<strong>登录 PTAgent</strong><span class="muted">家教资源工作台</span>`;
+  const authTitle = state.authMode === "register" ? "教师注册" : state.authMode === "registered" ? "等待审核" : "账号登录";
+  $("#pageTitle").textContent = state.user ? (tab?.label || "操作台") : authTitle;
+  $("#currentUser").innerHTML = state.authMode === "register"
+    ? `<strong>创建教师账号</strong><span class="muted">填写真实执教信息</span>`
+    : state.authMode === "registered"
+      ? `<strong>资料提交成功</strong><span class="muted">账号正在等待审核</span>`
+      : `<strong>登录 PTAgent</strong><span class="muted">家教资源工作台</span>`;
+  renderAuthPanel();
   $("#sidebarUser").innerHTML = state.user ? `
     <span class="sidebar-user-avatar" aria-hidden="true">${html((state.profile?.realName || state.user.username).slice(0, 1))}</span>
     <span class="sidebar-user-copy">
@@ -69,6 +75,20 @@ function renderHeader() {
       <small>${html(state.user.roleLabel)}</small>
     </span>
   ` : "";
+}
+
+function renderAuthPanel() {
+  const mode = state.authMode;
+  $("#loginForm").hidden = mode !== "login";
+  $("#registerForm").hidden = mode !== "register";
+  $("#registrationResult").hidden = mode !== "registered";
+  $("#loginModeTab").classList.toggle("is-active", mode === "login");
+  $("#registerModeTab").classList.toggle("is-active", mode === "register");
+  $("#loginModeTab").setAttribute("aria-selected", String(mode === "login"));
+  $("#registerModeTab").setAttribute("aria-selected", String(mode === "register"));
+  document.querySelectorAll(".login-only-panel").forEach((panel) => {
+    panel.hidden = mode !== "login";
+  });
 }
 
 function renderNotifications() {

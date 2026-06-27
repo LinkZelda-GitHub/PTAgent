@@ -8,7 +8,7 @@ backend/src/main/java/com/ptagent
   common/                  JSON、密码哈希、XLSX 读取等基础工具
   domain/                  领域模型和状态枚举
   exception/               API 错误码与业务异常
-  repository/              Repository 接口、内存数据仓库与初始化数据
+  repository/              Repository 接口、账号文件数据库与内存业务仓库
   service/                 业务服务层
   web/                     HTTP API 请求解析、controller 分发与静态资源托管
   web/controller/          按业务拆分的轻量 controller
@@ -24,7 +24,7 @@ docs/                      项目文档
 | 层 | 职责 |
 |---|---|
 | `domain` | 用户、教师资料、简历、需求、申请、订单、授课记录、评价、审计日志等核心对象 |
-| `repository` | 通过 `Repository` 接口隔离数据访问；当前实现使用内存 Map 保存数据并初始化示例数据 |
+| `repository` | 通过 `Repository` 接口隔离数据访问；账号和教师资料使用本地文件数据库，其余演示数据使用内存 Map |
 | `service` | 登录、需求筛选排序、申请审核、课程记录、评价回访等业务规则 |
 | `web` | 解析 HTTP 请求、统一错误响应、分发到轻量 controller、静态文件访问 |
 | `public` | 本地 Web GUI，面向教师、普通管理员、最高管理员；`app.js` 作为入口，具体逻辑拆分到 `public/js` |
@@ -54,9 +54,17 @@ docs/                      项目文档
 - `AuditController` 提供 `/api/audit-logs?actorId={id}`，仅管理员和最高管理员可查看。
 - 当前会话只保存在单进程内存中，服务重启后失效；迁移 Spring Security/JWT 后，操作者应直接来自认证上下文，而不是请求体。
 
+## 账号持久化
+
+- `AccountDatabase` 使用 JDK 文件 API 和项目内置 JSON 工具维护 `data/ptagent-accounts.json`。
+- `AppRepository` 启动时先载入示例数据，再用账号数据库恢复注册用户、教师资料和审核状态。
+- 用户创建、登录时间更新、资料修改、评分变化和账号启用状态都会触发原子快照写入。
+- 服务测试默认使用 `new AppRepository(false)` 隔离本地数据库，持久化测试使用临时目录。
+- `database/migrations/V1__init.sql` 是后续 MySQL Repository 的正式结构基线。
+
 ## 运维基础
 
-- `HealthHandler` 提供 `/actuator/health` 健康检查，返回内存仓储、用户、需求和订单的基础状态。
+- `HealthHandler` 提供 `/actuator/health` 健康检查，返回混合仓储类型、账号数据库位置、用户、需求和订单的基础状态。
 - `ApiRouter` 会为每个 API 请求生成或沿用 `X-Request-Id`，写入响应头。
 - API 异常响应包含 `traceId`，控制台访问日志以 JSON 字符串输出 `traceId`、方法、路径、状态码和耗时。
 
@@ -67,13 +75,13 @@ docs/                      项目文档
 - `app.js`：初始化入口。
 - `js/api.js`：REST 请求、Bearer Token 注入与查询参数拼装。
 - `js/state.js`：全局页面状态、角色菜单和筛选字段定义。
-- `js/data.js`：登录、会话恢复/退出、启动数据、需求列表和全量数据刷新。
+- `js/data.js`：登录、教师注册、会话恢复/退出、启动数据、需求列表和全量数据刷新。
 - `js/render.js`：页面渲染、空状态和加载状态。
 - `js/events.js`：导航、筛选、表单和按钮事件。
 - `js/map.js`：本地坐标板和可选高德地图加载。
 - `js/view.js`：DOM 工具、主题/侧栏偏好、Toast、提交中状态。
 
-主题、侧栏折叠、登录令牌和需求广场筛选条件均使用 `localStorage` 本地持久化。登录成功后右侧登录栏会从布局中隐藏，左侧提供基于本地图标的业务快捷入口。
+主题、侧栏折叠、登录令牌和需求广场筛选条件均使用 `localStorage` 本地持久化。登录成功后右侧登录栏会从布局中隐藏，左侧提供按角色展示的图标文字导航；折叠后可通过悬浮提示识别入口。
 
 地图默认使用本地坐标板；填写高德 Web Key 后，前端通过高德 JavaScript API Loader 加载真实地图并绘制需求标记。地图 Key 与安全密钥仅保存于浏览器 `localStorage`，不进入仓库。
 
@@ -92,7 +100,7 @@ ImportController -> DemandImportService -> XlsxReader -> Repository
 教师端：
 
 ```text
-登录 -> 浏览需求广场 -> 筛选/排序 -> 申请接单 -> 查看匹配通知 -> 维护课程记录/简历
+注册 -> 等待最高管理员审核启用 -> 登录 -> 浏览需求广场 -> 筛选/排序 -> 申请接单 -> 查看匹配通知 -> 维护课程记录/简历
 ```
 
 管理员端：

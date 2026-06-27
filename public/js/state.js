@@ -3,6 +3,8 @@ export const state = {
   profile: null,
   bootstrap: null,
   currentTab: "plaza",
+  authMode: "login",
+  registrationResult: null,
   theme: "light",
   sidebarCollapsed: false,
   loading: {

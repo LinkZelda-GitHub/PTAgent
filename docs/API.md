@@ -24,7 +24,11 @@
 
 | 错误码 | 说明 |
 |---|---|
+| `AUTH_USERNAME_EXISTS` | 用户名已注册 |
 | `AUTH_INVALID_PASSWORD` | 密码不正确 |
+| `AUTH_DISABLED` | 账号待审核或已被禁用 |
+| `AUTH_PHONE_EXISTS` | 手机号已注册 |
+| `AUTH_EMAIL_EXISTS` | 邮箱已注册 |
 | `AUTH_REQUIRED` | 请求未携带登录令牌 |
 | `AUTH_SESSION_INVALID` | 登录令牌不存在、已退出或已过期 |
 | `ACCESS_DENIED` | 当前操作者没有权限执行该操作 |
@@ -51,7 +55,8 @@
   "data": {
     "status": "UP",
     "time": "2026-06-26T15:45:00",
-    "repository": "memory",
+    "repository": "file+memory",
+    "database": "E:\\PTAgent\\data\\ptagent-accounts.json",
     "users": 4,
     "demands": 5,
     "orders": 1
@@ -117,6 +122,27 @@ Authorization: Bearer <token>
 ```
 
 登录响应包含 `token`、`expiresAt`、`user`，教师账号还会包含 `profile`。令牌仅保存在服务端内存中，服务重启后需要重新登录。
+
+教师注册请求示例：
+
+```json
+{
+  "username": "new_teacher",
+  "password": "Strong123",
+  "realName": "李老师",
+  "gender": 2,
+  "phoneNumber": "13912345678",
+  "email": "teacher@example.com",
+  "education": "本科",
+  "graduateSchool": "华南师范大学",
+  "subjects": ["数学", "物理"],
+  "serviceArea": ["天河区", "越秀区"],
+  "hasTeacherCert": true,
+  "personalIntro": "具备一对一教学经验"
+}
+```
+
+注册成功返回 `PENDING_REVIEW`。账号与资料会保存到本地账号数据库，但必须由最高管理员启用后才能登录。
 
 ## 需求
 

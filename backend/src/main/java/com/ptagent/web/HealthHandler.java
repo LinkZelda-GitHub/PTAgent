@@ -24,7 +24,8 @@ public class HealthHandler implements HttpHandler {
         Response.json(exchange, 200, Json.object(
                 "status", "UP",
                 "time", LocalDateTime.now().toString(),
-                "repository", "memory",
+                "repository", repository.storageType(),
+                "database", repository.storageLocation(),
                 "users", repository.allUsers().size(),
                 "demands", repository.allDemands().size(),
                 "orders", repository.allOrders().size()

@@ -1124,10 +1124,78 @@ td {
   color: var(--ink-strong);
 }
 
+.auth-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.auth-tab {
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.auth-tab.is-active {
+  color: var(--accent-ink);
+  background: var(--matte);
+  box-shadow: var(--shadow-soft);
+}
+
 .login-form,
+.register-form,
 .demo-list {
   display: grid;
   gap: 10px;
+}
+
+.register-form textarea {
+  min-height: 72px;
+}
+
+.registration-checks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.agreement-check {
+  display: flex;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+}
+
+.agreement-check input {
+  width: 16px;
+  min-height: 16px;
+  flex: 0 0 auto;
+}
+
+.registration-result {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--field);
+}
+
+.registration-result strong {
+  color: var(--ink-strong);
+  font-size: 18px;
+}
+
+.registration-result p {
+  margin: 0;
 }
 
 .form-error {
