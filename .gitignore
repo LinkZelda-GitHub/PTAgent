@@ -1,4 +1,5 @@
 /build/test-classes/
 /data/*.json
 /data/*.tmp
+/data/*.jsonl
 /dist/

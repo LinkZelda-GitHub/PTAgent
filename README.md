@@ -1,6 +1,6 @@
 # PTAgent 家教资源整合平台
 
-当前版本：`0.9.0-rc1`（外部服务接入前预发布候选版）。
+当前版本：`0.9.0-rc2`（可观测性与审计加固候选版）。
 
 这是根据 `Plan.md` 落地的本地可运行 Web 版 MVP。当前环境没有 Maven/Gradle/Node，因此项目采用 **JDK 17 零外部依赖** 实现：Java HTTP 服务提供 REST API 并托管原生 HTML/CSS/JS GUI，同时保持后端多层架构，方便后续迁移到 Spring Boot + Vue + Element UI。
 
@@ -43,8 +43,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
 - 原生前端 ES Module 拆分、需求筛选本地持久化和表单提交中状态
 - 需求广场地图支持本地坐标板，并可填写高德 Web Key 升级为真实地图
 - 支持按 `example.xlsx` 的分区订单格式导入需求数据
-- 健康检查 `/actuator/health`、API 请求追踪 ID 和基础访问日志
-- 后端角色权限校验与关键操作审计日志，管理员可在“审计日志”页面查看
+- 存活、就绪、依赖健康探针，API 请求追踪 ID 和结构化访问日志
+- 后端角色权限校验与哈希链式审计日志，管理员可在“审计日志”页面查看
 - 写操作操作者身份来自 Bearer 登录会话，客户端提交的用户 ID 不再被信任
 - 登录与验证码防刷、1 MB 请求上限、严格 JSON、同源 CORS、安全响应头和敏感需求数据脱敏
 - 登录成功后自动隐藏右侧登录栏，左侧保留按角色展示的图标文字导航
@@ -60,7 +60,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1
 ```
 
-产物位于 `dist/PTAgent-0.9.0-rc1-release.zip`。解压后可运行：
+产物位于 `dist/PTAgent-0.9.0-rc2-release.zip`。解压后可运行：
 
 ```powershell
 .\scripts\run-release.ps1 -Port 8080
@@ -76,6 +76,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1
 4. 启用后教师可登录并使用需求广场、申请、订单和授课记录功能。
 
 登录身份、教师资料和启用状态保存在 `data/ptagent-accounts.json`，不保存账号密码。服务重启后仍可恢复，生产化迁移位于 `database/migrations`。
+
+关键写操作和失败写请求追加到 `data/ptagent-audit.jsonl`。每条记录包含请求追踪信息并通过 SHA-256 前后哈希关联；启动时校验完整性。该本地机制用于发现历史记录篡改，正式投产仍须迁移到受控、限制修改权限的集中审计存储。
 
 ## 地图配置
 

@@ -15,6 +15,7 @@ import com.ptagent.domain.TeacherProfile;
 import com.ptagent.domain.TeacherResume;
 import com.ptagent.domain.TeachingRecord;
 import com.ptagent.domain.User;
+import com.ptagent.common.RequestContext;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,6 +30,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class AppRepository implements Repository {
     private final AccountDatabase accountDatabase;
+    private final AuditDatabase auditDatabase;
     private boolean accountPersistenceReady;
     private final Map<Long, User> users = new LinkedHashMap<>();
     private final Map<Long, TeacherProfile> teacherProfiles = new LinkedHashMap<>();
@@ -52,22 +54,24 @@ public class AppRepository implements Repository {
     private final AtomicLong auditLogIds = new AtomicLong(900);
 
     public AppRepository() {
-        this(new AccountDatabase(AccountDatabase.defaultDirectory()));
+        this(AccountDatabase.defaultDirectory(), true);
     }
 
     public AppRepository(boolean persistent) {
-        this(persistent ? new AccountDatabase(AccountDatabase.defaultDirectory()) : null);
+        this(AccountDatabase.defaultDirectory(), persistent);
     }
 
     public AppRepository(Path dataDirectory) {
-        this(new AccountDatabase(dataDirectory));
+        this(dataDirectory, true);
     }
 
-    private AppRepository(AccountDatabase accountDatabase) {
-        this.accountDatabase = accountDatabase;
+    private AppRepository(Path dataDirectory, boolean persistent) {
+        this.accountDatabase = persistent ? new AccountDatabase(dataDirectory) : null;
+        this.auditDatabase = persistent ? new AuditDatabase(dataDirectory) : null;
         seed();
         if (accountDatabase != null) {
             restoreAccounts(accountDatabase.read());
+            restoreAuditLogs(auditDatabase.read());
             accountPersistenceReady = true;
             persistAccounts();
         }
@@ -81,6 +85,18 @@ public class AppRepository implements Repository {
     @Override
     public String storageLocation() {
         return accountDatabase == null ? "" : accountDatabase.location();
+    }
+
+    @Override
+    public synchronized Map<String, Object> health() {
+        boolean accountHealthy = accountDatabase == null || accountDatabase.healthy();
+        boolean auditHealthy = auditDatabase == null || auditDatabase.healthy();
+        return Map.of(
+                "status", accountHealthy && auditHealthy ? "UP" : "DOWN",
+                "storage", storageType(),
+                "accounts", accountHealthy ? "UP" : "DOWN",
+                "auditJournal", auditHealthy ? "UP" : "DOWN"
+        );
     }
 
     public synchronized User createUser(String displayName, LoginMethod loginMethod, String loginId, RoleType role,
@@ -270,7 +286,8 @@ public class AppRepository implements Repository {
                 .toList();
     }
 
-    public synchronized AuditLog createAuditLog(long actorId, String action, String targetType, long targetId, String detail) {
+    public synchronized AuditLog createAuditLog(long actorId, String action, String targetType, long targetId,
+                                                 String detail, String result) {
         AuditLog auditLog = new AuditLog();
         auditLog.id = auditLogIds.getAndIncrement();
         auditLog.actorId = actorId;
@@ -279,6 +296,16 @@ public class AppRepository implements Repository {
         auditLog.targetType = targetType;
         auditLog.targetId = targetId;
         auditLog.detail = detail;
+        RequestContext.Metadata metadata = RequestContext.current();
+        auditLog.requestId = metadata.requestId();
+        auditLog.clientIp = metadata.clientIp();
+        auditLog.userAgent = metadata.userAgent();
+        auditLog.result = result;
+        if (auditDatabase != null) {
+            String previousHash = auditLogs.values().stream().reduce((first, second) -> second)
+                    .map(log -> log.hash).orElse("");
+            auditDatabase.append(auditLog, previousHash);
+        }
         auditLogs.put(auditLog.id, auditLog);
         return auditLog;
     }
@@ -292,6 +319,12 @@ public class AppRepository implements Repository {
         snapshot.profiles().forEach(profile -> teacherProfiles.put(profile.teacherId, profile));
         long nextUserId = users.keySet().stream().mapToLong(Long::longValue).max().orElse(99) + 1;
         userIds.set(Math.max(100, nextUserId));
+    }
+
+    private void restoreAuditLogs(List<AuditLog> logs) {
+        logs.forEach(log -> auditLogs.put(log.id, log));
+        long nextAuditLogId = auditLogs.keySet().stream().mapToLong(Long::longValue).max().orElse(899) + 1;
+        auditLogIds.set(Math.max(900, nextAuditLogId));
     }
 
     private void persistAccounts() {

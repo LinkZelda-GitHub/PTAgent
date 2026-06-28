@@ -1,6 +1,6 @@
-import { renderDemandMap } from "./map.js?v=20260628-4";
-import { state, tabs } from "./state.js?v=20260628-4";
-import { $, formatDateTime, html } from "./view.js?v=20260628-4";
+import { renderDemandMap } from "./map.js?v=20260628-5";
+import { state, tabs } from "./state.js?v=20260628-5";
+import { $, formatDateTime, html } from "./view.js?v=20260628-5";
 
 export function render() {
   renderAuthState();
@@ -364,8 +364,10 @@ function renderAuditLogs() {
       <td><strong>${html(log.action)}</strong><br><span class="muted">${html(log.detail || "")}</span></td>
       <td>${html(log.targetType)} #${html(log.targetId)}</td>
       <td>#${html(log.actorId)} ${html(log.actorRole)}</td>
+      <td><span class="audit-trace">${html(log.requestId || "服务内部")}</span><br><span class="muted">${html(log.clientIp || "-")}</span></td>
+      <td><span class="status-pill">${html(log.result || "SUCCESS")}</span><br><span class="muted" title="完整性哈希">${html((log.hash || "memory").slice(0, 12))}</span></td>
     </tr>
-  `).join("") : `<tr><td colspan="4">${emptyBlock("暂无审计日志。")}</td></tr>`;
+  `).join("") : `<tr><td colspan="6">${emptyBlock("暂无审计日志。")}</td></tr>`;
 }
 
 function loadingBlock(message) {

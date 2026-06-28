@@ -73,7 +73,7 @@ public class TeacherService {
         profile.normalUniversity = Json.bool(body, "normalUniversity", profile.normalUniversity);
         profile.competitionExperience = Json.bool(body, "competitionExperience", profile.competitionExperience);
         repository.saveProfile(profile);
-        repository.createAuditLog(actorId, "TEACHER_PROFILE_UPDATE", "TEACHER", teacherId, profile.realName);
+        repository.createAuditLog(actorId, "TEACHER_PROFILE_UPDATE", "TEACHER", teacherId, "profile-updated");
         return profile.toMap(repository.findUser(teacherId).orElse(null));
     }
 
@@ -87,7 +87,7 @@ public class TeacherService {
         user.enabled = enabled;
         repository.saveUser(user);
         repository.createAuditLog(adminId, enabled ? "TEACHER_ENABLE" : "TEACHER_DISABLE", "TEACHER", teacherId,
-                user.displayName);
+                "enabled=" + enabled);
         repository.createNotification(teacherId, enabled ? "账号已启用" : "账号已禁用",
                 enabled ? "最高管理员已启用你的教师账号。" : "账号已被禁用，请联系平台管理员。");
         TeacherProfile profile = repository.findProfile(teacherId)
@@ -116,7 +116,7 @@ public class TeacherService {
             throw ApiException.notFound(ErrorCode.TEACHER_NOT_FOUND, "教师不存在");
         }
         TeacherResume resume = repository.createResume(teacherId, Json.str(body, "fileUrl"), Json.str(body, "summary"));
-        repository.createAuditLog(actorId, "RESUME_SUBMIT", "RESUME", resume.id, resume.summary);
+        repository.createAuditLog(actorId, "RESUME_SUBMIT", "RESUME", resume.id, "resume-submitted");
         repository.createNotification(teacherId, "简历已提交", "平台管理员已收到你的最新简历。");
         return resume.toMap(repository.findProfile(teacherId).orElse(null));
     }

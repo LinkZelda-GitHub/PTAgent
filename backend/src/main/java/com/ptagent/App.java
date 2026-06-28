@@ -21,6 +21,10 @@ public class App {
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/api", new ApiRouter(repository));
         server.createContext("/actuator/health", new HealthHandler(repository));
+        server.createContext("/actuator/health/live", new HealthHandler(repository, HealthHandler.Mode.LIVE));
+        server.createContext("/actuator/health/ready", new HealthHandler(repository, HealthHandler.Mode.READY));
+        server.createContext("/actuator/health/dependencies",
+                new HealthHandler(repository, HealthHandler.Mode.DEPENDENCIES));
         server.createContext("/", new StaticFileHandler("public"));
         server.setExecutor(Executors.newFixedThreadPool(12));
         Runtime.getRuntime().addShutdownHook(new Thread(() -> server.stop(0)));

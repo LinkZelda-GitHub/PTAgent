@@ -16,7 +16,9 @@ import com.ptagent.service.DemandImportService;
 import com.ptagent.service.DemandService;
 import com.ptagent.web.ApiRequest;
 import com.ptagent.web.ApiRouter;
+import com.ptagent.web.HealthHandler;
 import com.ptagent.web.StaticFileHandler;
+import com.ptagent.common.RequestContext;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
@@ -39,6 +41,7 @@ public class ServiceTests {
         run("ApiRequest overrides spoofed actor identifiers", ServiceTests::apiRequestUsesAuthenticatedActor);
         run("HTTP boundary enforces security policy", ServiceTests::httpSecurityBoundary);
         run("Teacher registration persists account and profile", ServiceTests::teacherRegistrationPersists);
+        run("Audit journal persists and detects tampering", ServiceTests::auditJournalIntegrity);
         run("DemandService filters by subject and calculates match score", ServiceTests::demandFiltersAndScores);
         run("DemandService rejects invalid demand payloads", ServiceTests::demandValidation);
         run("DemandImportService imports xlsx order format", ServiceTests::demandXlsxImport);
@@ -221,6 +224,11 @@ public class ServiceTests {
             Repository repository = new AppRepository(false);
             server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             server.createContext("/api", new ApiRouter(repository));
+            server.createContext("/actuator/health", new HealthHandler(repository));
+            server.createContext("/actuator/health/live", new HealthHandler(repository, HealthHandler.Mode.LIVE));
+            server.createContext("/actuator/health/ready", new HealthHandler(repository, HealthHandler.Mode.READY));
+            server.createContext("/actuator/health/dependencies",
+                    new HealthHandler(repository, HealthHandler.Mode.DEPENDENCIES));
             server.createContext("/", new StaticFileHandler("public"));
             server.start();
 
@@ -234,6 +242,29 @@ public class ServiceTests {
             assertTrue(page.headers().firstValue("Content-Security-Policy").isPresent(),
                     "静态页面应包含CSP响应头");
             assertEquals("nosniff", page.headers().firstValue("X-Content-Type-Options").orElse(""));
+
+            HttpResponse<String> liveness = client.send(HttpRequest.newBuilder(
+                            URI.create(base + "/actuator/health/live")).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, liveness.statusCode());
+            assertEquals("UP", castMap(Json.parseObject(liveness.body()).get("data")).get("status"));
+            HttpResponse<String> readiness = client.send(HttpRequest.newBuilder(
+                            URI.create(base + "/actuator/health/ready")).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, readiness.statusCode());
+            assertEquals("UP", castMap(Json.parseObject(readiness.body()).get("data")).get("status"));
+            HttpResponse<String> dependencies = client.send(HttpRequest.newBuilder(
+                            URI.create(base + "/actuator/health/dependencies")).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals("DEGRADED", castMap(Json.parseObject(dependencies.body()).get("data")).get("status"));
+
+            HttpResponse<String> invalidRequestId = client.send(HttpRequest.newBuilder(
+                            URI.create(base + "/api/bootstrap"))
+                            .header("X-Request-Id", "invalid request id").GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertTrue(!"invalid request id".equals(invalidRequestId.headers()
+                            .firstValue("X-Request-Id").orElse("")),
+                    "非法Request ID应由服务端重新生成");
 
             HttpResponse<String> hostileOrigin = client.send(HttpRequest.newBuilder(URI.create(base + "/api/bootstrap"))
                             .header("Origin", "https://evil.example").GET().build(),
@@ -276,11 +307,71 @@ public class ServiceTests {
             assertTrue(String.valueOf(demandItems.get(0).get("parentPhone")).contains("****"),
                     "教师需求响应应脱敏家长电话");
             assertTrue(!demandItems.get(0).containsKey("adminId"), "教师需求响应不应包含管理员ID");
+
+            HttpResponse<String> deniedMutation = client.send(HttpRequest.newBuilder(
+                            URI.create(base + "/api/teachers/102/enabled"))
+                            .header("Authorization", "Bearer " + token)
+                            .header("Content-Type", "application/json")
+                            .header("X-Request-Id", "audit-request-1")
+                            .header("User-Agent", "PTAgentTests/1.0")
+                            .POST(HttpRequest.BodyPublishers.ofString("{\"enabled\":false}"))
+                            .build(), HttpResponse.BodyHandlers.ofString());
+            assertApiError(deniedMutation, 403, ErrorCode.ACCESS_DENIED);
+            assertTrue(repository.allAuditLogs().stream().anyMatch(log ->
+                            "HTTP_MUTATION".equals(log.action)
+                                    && "audit-request-1".equals(log.requestId)
+                                    && "FAILURE".equals(log.result)
+                                    && "PTAgentTests/1.0".equals(log.userAgent)
+                                    && !log.clientIp.isBlank()),
+                    "失败写操作应记录请求上下文和执行结果");
         } catch (IOException | InterruptedException exception) {
             throw new RuntimeException(exception);
         } finally {
             if (server != null) {
                 server.stop(0);
+            }
+        }
+    }
+
+    private static void auditJournalIntegrity() {
+        Path directory = null;
+        try {
+            directory = Files.createTempDirectory("ptagent-audit-test");
+            Repository repository = new AppRepository(directory);
+            RequestContext.set("audit-persist-1", "127.0.0.1", "PTAgentTests/1.0");
+            new ApplicationService(repository).apply(300L, body(
+                    "teacherId", 102L,
+                    "selfIntro", "用于审计持久化测试。"
+            ));
+            RequestContext.clear();
+
+            Repository restored = new AppRepository(directory);
+            assertTrue(restored.allAuditLogs().stream().anyMatch(log ->
+                            "audit-persist-1".equals(log.requestId) && !log.hash.isBlank()),
+                    "审计日志应跨重启恢复并包含哈希");
+
+            Path journal = directory.resolve("ptagent-audit.jsonl");
+            String tampered = Files.readString(journal).replace("APPLICATION_CREATE", "APPLICATION_CHANGED");
+            Files.writeString(journal, tampered);
+            try {
+                new AppRepository(directory);
+                throw new AssertionError("篡改审计日志后启动应失败");
+            } catch (IllegalStateException expected) {
+                assertTrue(expected.getMessage().contains("哈希链校验失败"), "应报告审计哈希链错误");
+            }
+        } catch (IOException exception) {
+            throw new RuntimeException(exception);
+        } finally {
+            RequestContext.clear();
+            if (directory != null) {
+                try {
+                    Files.deleteIfExists(directory.resolve("ptagent-accounts.json.tmp"));
+                    Files.deleteIfExists(directory.resolve("ptagent-accounts.json"));
+                    Files.deleteIfExists(directory.resolve("ptagent-audit.jsonl"));
+                    Files.deleteIfExists(directory);
+                } catch (IOException exception) {
+                    throw new RuntimeException(exception);
+                }
             }
         }
     }

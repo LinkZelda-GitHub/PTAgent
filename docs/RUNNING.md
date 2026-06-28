@@ -7,7 +7,7 @@
 
 当前版本不依赖 Maven、Gradle、Node/npm、MySQL、Redis，也不需要联网下载依赖。
 
-版本号：`0.9.0-rc1`。
+版本号：`0.9.0-rc2`。
 
 ## 启动
 
@@ -52,13 +52,18 @@ http://localhost:8080
 
 ## 健康检查
 
-启动后可检查服务状态：
+启动后可分别检查聚合状态、进程存活、服务就绪和依赖配置：
 
 ```powershell
 Invoke-RestMethod http://localhost:8080/actuator/health
+Invoke-RestMethod http://localhost:8080/actuator/health/live
+Invoke-RestMethod http://localhost:8080/actuator/health/ready
+Invoke-RestMethod http://localhost:8080/actuator/health/dependencies
 ```
 
-API 响应头会包含 `X-Request-Id`。如果调用方传入同名请求头，服务端会沿用该值，便于和控制台访问日志关联。
+`live` 只表示 Java 进程能响应；`ready` 检查本地 Repository，并在 `production` 环境下保持 `DOWN`，直到正式认证、数据库和分布式状态适配器完成接入；`dependencies` 区分未配置和已配置但尚未连接的外部服务。
+
+API 响应头会包含 `X-Request-Id`。调用方可传入 1 至 64 位、仅含字母数字及 `._:-` 的值；非法值会被服务端重新生成，便于安全关联访问日志与审计记录。
 
 ## 账号数据库与注册
 
@@ -83,7 +88,7 @@ $env:PTAGENT_DATA_DIR = "D:\ptagent-data"
 
 ## 审计日志
 
-管理员登录后可以在页面侧边栏打开“审计日志”。也可以直接调用 API 查看本地内存审计记录：
+管理员登录后可以在页面侧边栏打开“审计日志”。也可以直接调用 API 查看审计记录：
 
 ```powershell
 $login = Invoke-RestMethod "http://localhost:8080/api/auth/login" `
@@ -93,7 +98,7 @@ $headers = @{ Authorization = "Bearer $($login.data.token)" }
 Invoke-RestMethod "http://localhost:8080/api/audit-logs" -Headers $headers
 ```
 
-当前 MVP 的审计日志暂存于内存，服务重启后会恢复为空；后续接入数据库后应持久化保存。
+审计记录逐行追加到 `data/ptagent-audit.jsonl`，包含操作者、动作、目标、Request ID、来源 IP、User-Agent、结果和时间，并通过 SHA-256 哈希链关联。服务启动时会校验整条链，发现历史记录被改动将拒绝启动。请将 `PTAGENT_DATA_DIR` 放在受限目录并纳入备份；正式环境仍需迁移到集中审计存储和独立访问控制。
 
 ## 只编译
 
@@ -141,7 +146,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1
 ```
 
-脚本会运行测试并生成 `dist/PTAgent-0.9.0-rc1-release.zip`。压缩包只包含运行字节码、静态页面、数据库迁移、文档、配置模板和发布启动脚本，不包含 `data`、测试字节码、Git 元数据或真实密钥。
+脚本会运行测试并生成 `dist/PTAgent-0.9.0-rc2-release.zip`。压缩包只包含运行字节码、静态页面、数据库迁移、文档、配置模板和发布启动脚本，不包含 `data`、测试字节码、Git 元数据或真实密钥。
 
 解压后运行：
 

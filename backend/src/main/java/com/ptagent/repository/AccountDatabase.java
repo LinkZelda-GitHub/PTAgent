@@ -69,6 +69,12 @@ final class AccountDatabase {
         return file.toString();
     }
 
+    boolean healthy() {
+        Path directory = file.getParent();
+        return (Files.notExists(file) || Files.isReadable(file))
+                && (Files.notExists(directory) || Files.isWritable(directory));
+    }
+
     private Map<String, Object> userMap(User user) {
         return Json.object(
                 "id", user.id, "displayName", user.displayName,

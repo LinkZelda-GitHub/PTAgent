@@ -20,7 +20,7 @@
 }
 ```
 
-`code` 为稳定错误码，便于前端按场景展示提示或做分支处理；`traceId` 可用于和服务端日志关联。所有 API 响应头都会包含 `X-Request-Id`，调用方也可以主动传入该请求头。常见错误码包括：
+`code` 为稳定错误码，便于前端按场景展示提示或做分支处理；`traceId` 可用于和服务端日志关联。所有 API 响应头都会包含 `X-Request-Id`。调用方传入的 Request ID 必须为 1 至 64 位且仅含字母数字及 `._:-`，否则服务端会重新生成。常见错误码包括：
 
 | 错误码 | 说明 |
 |---|---|
@@ -61,7 +61,10 @@
 |---|---|---|
 | GET | `/api` | 服务状态 |
 | GET | `/api/bootstrap` | 获取统计、科目、年级、区域、标签、演示账号 |
-| GET | `/actuator/health` | 健康检查 |
+| GET | `/actuator/health` | 聚合健康状态 |
+| GET | `/actuator/health/live` | 进程存活探针 |
+| GET | `/actuator/health/ready` | 服务就绪探针 |
+| GET | `/actuator/health/dependencies` | 外部依赖配置状态 |
 
 健康检查响应：
 
@@ -70,7 +73,7 @@
   "ok": true,
   "data": {
     "status": "UP",
-    "version": "0.9.0-rc1",
+    "version": "0.9.0-rc2",
     "environment": "local",
     "demoAuth": true,
     "time": "2026-06-26T15:45:00",
@@ -83,7 +86,7 @@
 }
 ```
 
-上例为本地环境响应；`production` 环境会隐藏数据库路径和业务数量，避免公开内部部署细节。
+上例为本地环境响应；`production` 环境会隐藏数据库路径和业务数量，避免公开内部部署细节。候选版尚未连接正式认证、MySQL 和 Redis，因此生产环境的就绪探针返回 HTTP 503；依赖探针中的 `CONFIGURED` 仅表示变量齐全，不表示连接成功。
 
 ## 权限与审计
 
@@ -121,10 +124,16 @@ Authorization: Bearer <token>
     "targetType": "APPLICATION",
     "targetId": 401,
     "detail": "APPROVED",
+    "requestId": "match-review-401",
+    "clientIp": "127.0.0.1",
+    "userAgent": "Mozilla/5.0",
+    "result": "SUCCESS",
     "createTime": "2026-06-26T16:20:00"
   }
 ]
 ```
+
+持久化模式还会返回 `previousHash` 与 `hash`。失败的已认证写请求以 `HTTP_MUTATION` 和 `FAILURE` 记录，便于按 Request ID 关联错误响应、访问日志与审计日志。
 
 ## 账号
 

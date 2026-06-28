@@ -51,7 +51,8 @@ docs/                      项目文档
 - `AuthService` 统一处理微信、QQ、手机号验证码登录，成功后签发 12 小时内存令牌；`ApiRouter` 对非公开 API 统一校验 Bearer Token。
 - `ApiRouter` 校验令牌后把登录用户写入 `ApiRequest` 认证上下文；controller 会用该身份覆盖写请求中的操作者字段。
 - `AccessGuard` 集中处理 MVP 阶段的角色校验，服务层只接收 Web 边界注入的可信操作者 ID。
-- 关键写操作会写入内存 `AuditLog`：发布/关闭需求、XLSX 导入、申请接单、审核申请、启用/禁用教师、简历提交/标记、授课记录和评价。
+- 关键写操作会写入 `AuditLog`：发布/关闭需求、XLSX 导入、申请接单、审核申请、启用/禁用教师、简历提交/标记、授课记录和评价；失败写请求也会记录结果。
+- `RequestContext` 在单次 HTTP 请求内传递 Request ID、来源 IP 和 User-Agent；`AuditDatabase` 将记录追加到 JSONL 文件并使用 SHA-256 哈希链提供篡改检测。
 - `AuditController` 提供 `/api/audit-logs`，仅管理员和最高管理员可查看；请求日志同步记录认证用户 ID。
 - 当前会话只保存在单进程内存中，服务重启后失效；迁移 Spring Security/JWT 时可将轻量认证上下文替换为框架安全上下文。
 
@@ -69,12 +70,12 @@ docs/                      项目文档
 - `AppRepository` 启动时先载入示例数据，再用账号数据库恢复注册用户、教师资料和审核状态。
 - 用户创建、登录时间更新、资料修改、评分变化和账号启用状态都会触发原子快照写入。
 - 服务测试默认使用 `new AppRepository(false)` 隔离本地数据库，持久化测试使用临时目录。
-- `database/migrations` 保存 MySQL Repository 的版本化结构基线和无密码账号迁移。
+- `database/migrations` 保存 MySQL Repository 的版本化结构基线、无密码账号迁移和审计上下文迁移。
 
 ## 运维基础
 
-- `HealthHandler` 提供 `/actuator/health` 健康检查；本地环境返回诊断详情，`production` 环境隐藏数据库路径和业务数量。
-- `ApiRouter` 会为每个 API 请求生成或沿用 `X-Request-Id`，写入响应头。
+- `HealthHandler` 提供聚合、存活、就绪和依赖四类探针；本地环境返回诊断详情，`production` 环境隐藏内部路径并在正式适配器接入前保持未就绪。
+- `ApiRouter` 会校验或生成 `X-Request-Id`，写入响应头和请求上下文，避免未约束的客户端值污染日志。
 - API 异常响应包含 `traceId`，控制台访问日志以 JSON 字符串输出 `traceId`、方法、路径、状态码和耗时。
 
 ## 前端模块

@@ -15,6 +15,7 @@ import com.ptagent.domain.User;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public interface Repository {
@@ -24,6 +25,10 @@ public interface Repository {
 
     default String storageLocation() {
         return "";
+    }
+
+    default Map<String, Object> health() {
+        return Map.of("status", "UP", "storage", storageType());
     }
 
     User createUser(String displayName, LoginMethod loginMethod, String loginId, RoleType role, String phone,
@@ -86,7 +91,12 @@ public interface Repository {
 
     List<Notification> notificationsFor(long userId);
 
-    AuditLog createAuditLog(long actorId, String action, String targetType, long targetId, String detail);
+    default AuditLog createAuditLog(long actorId, String action, String targetType, long targetId, String detail) {
+        return createAuditLog(actorId, action, targetType, targetId, detail, "SUCCESS");
+    }
+
+    AuditLog createAuditLog(long actorId, String action, String targetType, long targetId, String detail,
+                            String result);
 
     List<AuditLog> allAuditLogs();
 }

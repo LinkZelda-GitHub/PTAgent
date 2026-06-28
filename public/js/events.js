@@ -1,8 +1,8 @@
-import { api } from "./api.js?v=20260628-4";
-import { clearSession, loadBootstrap, loadDemands, login, logout, persistFilters, refreshAll, registerTeacher, requestPhoneCode } from "./data.js?v=20260628-4";
-import { clearMapConfig, fillMapConfigForm, saveMapConfig } from "./map.js?v=20260628-4";
-import { render, renderPlaza } from "./render.js?v=20260628-4";
-import { filterIds, state, tabs } from "./state.js?v=20260628-4";
+import { api } from "./api.js?v=20260628-5";
+import { clearSession, loadBootstrap, loadDemands, login, logout, persistFilters, refreshAll, registerTeacher, requestPhoneCode } from "./data.js?v=20260628-5";
+import { clearMapConfig, fillMapConfigForm, saveMapConfig } from "./map.js?v=20260628-5";
+import { render, renderPlaza } from "./render.js?v=20260628-5";
+import { filterIds, state, tabs } from "./state.js?v=20260628-5";
 import {
   $,
   applySidebar,
@@ -15,7 +15,7 @@ import {
   toast,
   withButtonPending,
   withFormPending
-} from "./view.js?v=20260628-4";
+} from "./view.js?v=20260628-5";
 
 async function handleClick(event) {
   const button = event.target.closest("button[data-action]");

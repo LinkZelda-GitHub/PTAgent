@@ -3,6 +3,7 @@ package com.ptagent.web;
 import com.ptagent.common.Json;
 import com.ptagent.common.AppConfig;
 import com.ptagent.common.AppVersion;
+import com.ptagent.common.RequestContext;
 import com.ptagent.exception.ApiException;
 import com.ptagent.exception.ErrorCode;
 import com.ptagent.domain.User;
@@ -40,13 +41,16 @@ import java.util.Map;
 import java.util.UUID;
 
 public class ApiRouter implements HttpHandler {
+    private static final int MAX_REQUEST_ID_LENGTH = 64;
     private static final String TRACE_ATTRIBUTE = "traceId";
     private static final String STATUS_ATTRIBUTE = "responseStatus";
     private static final String ACTOR_ATTRIBUTE = "actorId";
     private final List<ApiController> controllers;
     private final AuthService authService;
+    private final Repository repository;
 
     public ApiRouter(Repository repository) {
+        this.repository = repository;
         this.authService = new AuthService(repository);
         TeacherService teacherService = new TeacherService(repository);
         DemandService demandService = new DemandService(repository);
@@ -77,6 +81,7 @@ public class ApiRouter implements HttpHandler {
         String traceId = traceId(exchange);
         exchange.setAttribute(TRACE_ATTRIBUTE, traceId);
         exchange.getResponseHeaders().set("X-Request-Id", traceId);
+        RequestContext.set(traceId, clientIp(exchange), exchange.getRequestHeaders().getFirst("User-Agent"));
         SecurityHeaders.apply(exchange);
 
         try {
@@ -95,9 +100,16 @@ public class ApiRouter implements HttpHandler {
             Response.error(exchange, 400, ErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
-            Response.error(exchange, 500, ErrorCode.INTERNAL_ERROR, "服务异常：" + e.getMessage());
+            Response.error(exchange, 500, ErrorCode.INTERNAL_ERROR, "服务内部异常");
         } finally {
-            log(exchange, start, null);
+            try {
+                auditMutation(exchange);
+            } catch (RuntimeException auditException) {
+                auditException.printStackTrace();
+            } finally {
+                log(exchange, start, null);
+                RequestContext.clear();
+            }
         }
     }
 
@@ -187,10 +199,18 @@ public class ApiRouter implements HttpHandler {
 
     private String traceId(HttpExchange exchange) {
         String requestId = exchange.getRequestHeaders().getFirst("X-Request-Id");
-        if (requestId == null || requestId.isBlank()) {
+        if (requestId == null || requestId.isBlank() || requestId.length() > MAX_REQUEST_ID_LENGTH
+                || !requestId.matches("[A-Za-z0-9._:-]+")) {
             return UUID.randomUUID().toString();
         }
         return requestId.trim();
+    }
+
+    private String clientIp(HttpExchange exchange) {
+        if (exchange.getRemoteAddress() == null || exchange.getRemoteAddress().getAddress() == null) {
+            return "";
+        }
+        return exchange.getRemoteAddress().getAddress().getHostAddress();
     }
 
     private String bearerToken(HttpExchange exchange) {
@@ -220,5 +240,18 @@ public class ApiRouter implements HttpHandler {
                 "elapsedMs", elapsedMs,
                 "message", message == null ? "" : message
         )));
+    }
+
+    private void auditMutation(HttpExchange exchange) {
+        String method = exchange.getRequestMethod().toUpperCase();
+        Object actor = exchange.getAttribute(ACTOR_ATTRIBUTE);
+        if (!(actor instanceof Number number) || "GET".equals(method) || "OPTIONS".equals(method)) {
+            return;
+        }
+        Object statusValue = exchange.getAttribute(STATUS_ATTRIBUTE);
+        int status = statusValue instanceof Number statusNumber ? statusNumber.intValue() : 500;
+        String result = status >= 200 && status < 400 ? "SUCCESS" : "FAILURE";
+        repository.createAuditLog(number.longValue(), "HTTP_MUTATION", "HTTP", 0,
+                method + " " + exchange.getRequestURI().getPath() + " status=" + status, result);
     }
 }
