@@ -18,7 +18,7 @@ public class NotificationController implements ApiController {
     @Override
     public boolean handle(ApiRequest request, HttpExchange exchange) throws IOException {
         if (request.is("notifications") && request.method("GET")) {
-            Response.json(exchange, 200, notificationService.list(request.queryLong("userId", 0)));
+            Response.json(exchange, 200, notificationService.list(request.actorId()));
             return true;
         }
         return false;

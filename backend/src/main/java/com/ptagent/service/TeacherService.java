@@ -23,7 +23,12 @@ public class TeacherService {
     }
 
     public List<Map<String, Object>> listTeachers() {
+        return listTeachers(0);
+    }
+
+    public List<Map<String, Object>> listTeachers(long teacherId) {
         return repository.allProfiles().stream()
+                .filter(profile -> teacherId == 0 || profile.teacherId == teacherId)
                 .map(profile -> profile.toMap(repository.findUser(profile.teacherId).orElse(null)))
                 .sorted(Comparator.comparing(map -> String.valueOf(map.get("realName"))))
                 .toList();
@@ -82,7 +87,7 @@ public class TeacherService {
         user.enabled = enabled;
         repository.saveUser(user);
         repository.createAuditLog(adminId, enabled ? "TEACHER_ENABLE" : "TEACHER_DISABLE", "TEACHER", teacherId,
-                user.username);
+                user.displayName);
         repository.createNotification(teacherId, enabled ? "账号已启用" : "账号已禁用",
                 enabled ? "最高管理员已启用你的教师账号。" : "账号已被禁用，请联系平台管理员。");
         TeacherProfile profile = repository.findProfile(teacherId)
@@ -91,7 +96,12 @@ public class TeacherService {
     }
 
     public List<Map<String, Object>> listResumes() {
+        return listResumes(0);
+    }
+
+    public List<Map<String, Object>> listResumes(long teacherId) {
         return repository.allResumes().stream()
+                .filter(resume -> teacherId == 0 || resume.teacherId == teacherId)
                 .sorted(Comparator.comparing((TeacherResume resume) -> resume.submitTime).reversed())
                 .map(resume -> resume.toMap(repository.findProfile(resume.teacherId).orElse(null)))
                 .toList();

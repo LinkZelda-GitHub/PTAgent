@@ -4,6 +4,8 @@ export const state = {
   bootstrap: null,
   currentTab: "plaza",
   authMode: "login",
+  loginMethod: "WECHAT",
+  registrationLoginMethod: "PHONE",
   registrationResult: null,
   theme: "light",
   sidebarCollapsed: false,

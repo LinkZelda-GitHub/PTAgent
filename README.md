@@ -1,5 +1,7 @@
 # PTAgent 家教资源整合平台
 
+当前版本：`0.9.0-rc1`（外部服务接入前预发布候选版）。
+
 这是根据 `Plan.md` 落地的本地可运行 Web 版 MVP。当前环境没有 Maven/Gradle/Node，因此项目采用 **JDK 17 零外部依赖** 实现：Java HTTP 服务提供 REST API 并托管原生 HTML/CSS/JS GUI，同时保持后端多层架构，方便后续迁移到 Spring Boot + Vue + Element UI。
 
 ## 快速启动
@@ -20,17 +22,17 @@ http://localhost:8080
 powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
 ```
 
-演示账号：
+演示身份：
 
-| 角色 | 用户名 | 密码 |
+| 角色 | 登录方式 | 登录标识 |
 |---|---|---|
-| 最高管理员 | `super` | `admin123` |
-| 普通管理员 | `admin` | `admin123` |
-| 教师 | `teacher` | `teacher123` |
+| 最高管理员 | 微信 | `ptagent_super` |
+| 普通管理员 | QQ | `10001001` |
+| 教师 | 手机号 | `13800000003` |
 
 ## 已实现范围
 
-- 三角色登录、教师信息注册、待审核启用、12 小时会话与安全退出
+- 微信、QQ、手机号验证码三选一登录，教师信息注册、待审核启用、12 小时会话与安全退出
 - 教师资料、教师简历投递与管理员查看/标记
 - 管理员发布需求、关闭需求
 - 教师端需求广场，支持科目、年级、区域、资质标签筛选，以及最新、距离、薪酬、匹配度排序
@@ -43,19 +45,37 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
 - 支持按 `example.xlsx` 的分区订单格式导入需求数据
 - 健康检查 `/actuator/health`、API 请求追踪 ID 和基础访问日志
 - 后端角色权限校验与关键操作审计日志，管理员可在“审计日志”页面查看
+- 写操作操作者身份来自 Bearer 登录会话，客户端提交的用户 ID 不再被信任
+- 登录与验证码防刷、1 MB 请求上限、严格 JSON、同源 CORS、安全响应头和敏感需求数据脱敏
 - 登录成功后自动隐藏右侧登录栏，左侧保留按角色展示的图标文字导航
 - 用户账号与教师资料写入 `data/ptagent-accounts.json`，服务重启后自动恢复
-- 提供 MySQL 8 初始化迁移 `database/migrations/V1__init.sql`
+- 提供 MySQL 8 初始化与无密码账号迁移脚本
 - 本地 GUI、REST API、运行/依赖/架构/API/开发备忘录文档
+
+## 预集成交付包
+
+执行以下命令会先运行全部测试，再生成不包含本地数据和密钥的发布包：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1
+```
+
+产物位于 `dist/PTAgent-0.9.0-rc1-release.zip`。解压后可运行：
+
+```powershell
+.\scripts\run-release.ps1 -Port 8080
+```
+
+环境变量模板位于 `config/application.env.example`。此版本用于服务器、数据库、OAuth、短信等外部服务接入前的最终联调，不可跳过 `docs/DEVELOPMENT_NOTES.md` 中的投产阻断项直接上线。
 
 ## 教师注册与审核
 
-1. 未登录时在右侧登录栏切换到“教师注册”，填写账号、联系方式、学历、科目、区域和教学资料。
+1. 未登录时在右侧登录栏切换到“教师注册”，选择微信、QQ或手机号作为登录方式，再填写联系方式与教学资料。
 2. 注册成功后账号进入 `PENDING_REVIEW` 状态，暂时不能登录。
 3. 最高管理员登录后进入“教师简历”，审核资料并启用教师账号。
 4. 启用后教师可登录并使用需求广场、申请、订单和授课记录功能。
 
-账号、教师资料和启用状态保存在 `data/ptagent-accounts.json`，服务重启后仍可恢复。生产化迁移以 `database/migrations/V1__init.sql` 为起点。
+登录身份、教师资料和启用状态保存在 `data/ptagent-accounts.json`，不保存账号密码。服务重启后仍可恢复，生产化迁移位于 `database/migrations`。
 
 ## 地图配置
 
@@ -69,7 +89,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
 
 ```json
 {
-  "adminId": 101,
   "filePath": "example.xlsx"
 }
 ```

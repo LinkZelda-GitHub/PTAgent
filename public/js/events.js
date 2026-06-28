@@ -1,8 +1,8 @@
-import { api } from "./api.js?v=20260627-6";
-import { clearSession, loadBootstrap, loadDemands, login, logout, persistFilters, refreshAll, registerTeacher } from "./data.js?v=20260627-6";
-import { clearMapConfig, fillMapConfigForm, saveMapConfig } from "./map.js?v=20260627-6";
-import { render, renderPlaza } from "./render.js?v=20260627-6";
-import { filterIds, state, tabs } from "./state.js?v=20260627-6";
+import { api } from "./api.js?v=20260628-4";
+import { clearSession, loadBootstrap, loadDemands, login, logout, persistFilters, refreshAll, registerTeacher, requestPhoneCode } from "./data.js?v=20260628-4";
+import { clearMapConfig, fillMapConfigForm, saveMapConfig } from "./map.js?v=20260628-4";
+import { render, renderPlaza } from "./render.js?v=20260628-4";
+import { filterIds, state, tabs } from "./state.js?v=20260628-4";
 import {
   $,
   applySidebar,
@@ -15,7 +15,7 @@ import {
   toast,
   withButtonPending,
   withFormPending
-} from "./view.js?v=20260627-6";
+} from "./view.js?v=20260628-4";
 
 async function handleClick(event) {
   const button = event.target.closest("button[data-action]");
@@ -27,11 +27,35 @@ async function handleClick(event) {
       state.registrationResult = null;
       render();
     }
-    if (action === "demo-login") {
-      $("#loginForm").username.value = button.dataset.username;
-      $("#loginForm").password.value = button.dataset.password;
+    if (action === "login-method") {
+      state.loginMethod = button.dataset.method || "WECHAT";
+      $("#loginForm").reset();
+      render();
+    }
+    if (action === "registration-login-method") {
+      state.registrationLoginMethod = button.dataset.method || "PHONE";
+      $("#registerForm").verificationCode.value = "";
+      render();
+    }
+    if (action === "request-phone-code") {
+      const form = button.closest("form");
+      const phoneNumber = button.dataset.scope === "register" ? form.phoneNumber.value : form.loginId.value;
+      let result;
       await withButtonPending(button, async () => {
-        await login(button.dataset.username, button.dataset.password);
+        result = await requestPhoneCode(phoneNumber);
+      });
+      form.verificationCode.value = result.demoCode || "";
+      toast(`验证码已发送至 ${result.phoneNumber}`);
+    }
+    if (action === "demo-login") {
+      const loginMethod = button.dataset.method;
+      const loginId = button.dataset.loginId;
+      await withButtonPending(button, async () => {
+        let verificationCode = "";
+        if (loginMethod === "PHONE") {
+          verificationCode = (await requestPhoneCode(loginId)).demoCode;
+        }
+        await login(loginMethod, loginId, verificationCode);
         render();
       });
       toast(`已登录：${state.user.roleLabel}`);
@@ -61,7 +85,7 @@ async function handleClick(event) {
     }
     if (action === "close-demand") {
       await withButtonPending(button, async () => {
-        await api(`/demands/${button.dataset.id}/close`, { method: "POST", body: { adminId: state.user.id } });
+        await api(`/demands/${button.dataset.id}/close`, { method: "POST", body: {} });
         await refreshAll();
       });
       toast("需求已关闭");
@@ -71,7 +95,7 @@ async function handleClick(event) {
       await withButtonPending(button, async () => {
         await api(`/applications/${button.dataset.id}/review`, {
           method: "POST",
-          body: { status: button.dataset.status, adminId: state.user.id }
+          body: { status: button.dataset.status }
         });
         await refreshAll();
       });
@@ -82,7 +106,7 @@ async function handleClick(event) {
       await withButtonPending(button, async () => {
         await api(`/teachers/${button.dataset.id}/enabled`, {
           method: "POST",
-          body: { enabled: button.dataset.enabled === "true", adminId: state.user.id }
+          body: { enabled: button.dataset.enabled === "true" }
         });
         await refreshAll();
       });
@@ -93,7 +117,7 @@ async function handleClick(event) {
       await withButtonPending(button, async () => {
         await api(`/resumes/${button.dataset.id}/status`, {
           method: "POST",
-          body: { status: Number(button.dataset.status), adminId: state.user.id }
+          body: { status: Number(button.dataset.status) }
         });
         await refreshAll();
       });
@@ -150,7 +174,7 @@ export function attachEvents() {
     errorBox.hidden = true;
     try {
       await withFormPending(form, async () => {
-        await login(form.username.value, form.password.value);
+        await login(state.loginMethod, form.loginId.value, form.verificationCode.value);
       });
       render();
       toast(`已登录：${state.user.roleLabel}`);
@@ -166,12 +190,9 @@ export function attachEvents() {
     const form = event.currentTarget;
     const errorBox = $("#registerError");
     errorBox.hidden = true;
-    if (form.password.value !== form.confirmPassword.value) {
-      errorBox.textContent = "两次输入的密码不一致";
-      errorBox.hidden = false;
-      return;
-    }
     const body = formObject(form);
+    body.loginMethod = state.registrationLoginMethod;
+    body.loginId = state.registrationLoginMethod === "PHONE" ? body.phoneNumber : body.loginId;
     body.gender = Number(body.gender);
     body.subjects = registrationList(form.subjects.value);
     body.serviceArea = registrationList(form.serviceArea.value);
@@ -179,14 +200,17 @@ export function attachEvents() {
     body.hasTeacherCert = form.hasTeacherCert.checked;
     body.normalUniversity = form.normalUniversity.checked;
     body.competitionExperience = form.competitionExperience.checked;
-    delete body.confirmPassword;
     delete body.agreement;
+    if (state.registrationLoginMethod !== "PHONE") {
+      delete body.verificationCode;
+    }
     try {
       let result;
       await withFormPending(form, async () => {
         result = await registerTeacher(body);
       });
       form.reset();
+      state.registrationLoginMethod = "PHONE";
       state.registrationResult = result;
       state.authMode = "registered";
       render();
@@ -225,7 +249,6 @@ export function attachEvents() {
     event.preventDefault();
     const form = event.currentTarget;
     const body = formObject(form);
-    body.adminId = state.user.id;
     body.salaryMin = Number(body.salaryMin || 0);
     body.salaryMax = Number(body.salaryMax || 0);
     body.longitude = Number(body.longitude || 113.2644);
@@ -251,7 +274,6 @@ export function attachEvents() {
     event.preventDefault();
     const form = event.currentTarget;
     const body = formObject(form);
-    body.adminId = state.user.id;
     try {
       let result;
       await withFormPending(form, async () => {
@@ -273,7 +295,7 @@ export function attachEvents() {
       await withFormPending(form, async () => {
         await api(`/demands/${state.selectedDemandId}/applications`, {
           method: "POST",
-          body: { teacherId: state.user.id, selfIntro: form.selfIntro.value }
+          body: { selfIntro: form.selfIntro.value }
         });
         await refreshAll();
       });
@@ -292,7 +314,6 @@ export function attachEvents() {
     event.preventDefault();
     const form = event.currentTarget;
     const body = formObject(form);
-    body.actorId = state.user.id;
     try {
       await withFormPending(form, async () => {
         await api("/resumes", { method: "POST", body });
@@ -309,7 +330,6 @@ export function attachEvents() {
     event.preventDefault();
     const form = event.currentTarget;
     const body = formObject(form);
-    body.teacherId = state.user.id;
     try {
       await withFormPending(form, async () => {
         await api(`/orders/${body.orderId}/records`, { method: "POST", body });
@@ -326,7 +346,6 @@ export function attachEvents() {
     event.preventDefault();
     const form = event.currentTarget;
     const body = formObject(form);
-    body.submitAdminId = state.user.id;
     body.ratingScore = Number(body.ratingScore);
     body.feedbackSource = Number(body.feedbackSource);
     try {

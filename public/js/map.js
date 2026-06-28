@@ -1,4 +1,4 @@
-import { html } from "./view.js?v=20260627-6";
+import { html } from "./view.js?v=20260628-4";
 
 const CONFIG_KEY = "ptagent-amap-config";
 let amapPromise = null;

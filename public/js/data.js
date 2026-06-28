@@ -1,7 +1,7 @@
-import { api, getAuthToken, queryString, setAuthToken } from "./api.js?v=20260627-6";
-import { renderDemoAccounts } from "./render.js?v=20260627-6";
-import { defaultTab, filterIds, state } from "./state.js?v=20260627-6";
-import { $, fillMultiSelect, fillSelect } from "./view.js?v=20260627-6";
+import { api, getAuthToken, queryString, setAuthToken } from "./api.js?v=20260628-4";
+import { renderDemoAccounts } from "./render.js?v=20260628-4";
+import { defaultTab, filterIds, state } from "./state.js?v=20260628-4";
+import { $, fillMultiSelect, fillSelect } from "./view.js?v=20260628-4";
 
 const FILTERS_KEY = "ptagent-demand-filters";
 
@@ -19,13 +19,20 @@ export async function loadBootstrap() {
   renderDemoAccounts();
 }
 
-export async function login(username, password) {
-  const data = await api("/auth/login", { method: "POST", body: { username, password } });
+export async function login(loginMethod, loginId, verificationCode = "") {
+  const data = await api("/auth/login", {
+    method: "POST",
+    body: { loginMethod, loginId, verificationCode }
+  });
   setAuthToken(data.token);
   state.user = data.user;
   state.profile = data.profile || null;
   state.currentTab = defaultTab();
   await refreshAll();
+}
+
+export async function requestPhoneCode(phoneNumber) {
+  return api("/auth/phone-code", { method: "POST", body: { phoneNumber } });
 }
 
 export async function registerTeacher(body) {
@@ -87,13 +94,13 @@ export async function refreshAll() {
       api("/applications?status=ALL").then((data) => state.applications = data),
       api("/teachers").then((data) => state.teachers = data),
       api("/resumes").then((data) => state.resumes = data),
-      api(`/orders${state.user?.role === "TEACHER" ? `?teacherId=${state.user.id}` : ""}`).then((data) => state.orders = data),
+      api("/orders").then((data) => state.orders = data),
       api("/records").then((data) => state.records = data),
       api("/feedbacks").then((data) => state.feedbacks = data),
       ["ADMIN", "SUPER_ADMIN"].includes(state.user?.role)
-        ? api(`/audit-logs?actorId=${state.user.id}`).then((data) => state.auditLogs = data)
+        ? api("/audit-logs").then((data) => state.auditLogs = data)
         : Promise.resolve(state.auditLogs = []),
-      api(`/notifications?userId=${state.user?.id || 0}`).then((data) => state.notifications = data)
+      api("/notifications").then((data) => state.notifications = data)
     ]);
   } finally {
     state.loading.refresh = false;
@@ -103,7 +110,6 @@ export async function refreshAll() {
 export async function loadDemands() {
   const query = queryString({
     status: "OPEN",
-    teacherId: state.user?.role === "TEACHER" ? state.user.id : "",
     ...readFilters()
   });
   state.demands = await api(`/demands?${query}`);

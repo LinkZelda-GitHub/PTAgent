@@ -1,6 +1,5 @@
 package com.ptagent.web.controller;
 
-import com.ptagent.common.Json;
 import com.ptagent.service.AuthService;
 import com.ptagent.web.ApiController;
 import com.ptagent.web.ApiRequest;
@@ -19,8 +18,12 @@ public class AuthController implements ApiController {
     @Override
     public boolean handle(ApiRequest request, HttpExchange exchange) throws IOException {
         if (request.is("auth", "login") && request.method("POST")) {
-            Response.json(exchange, 200, authService.login(Json.str(request.body(), "username"),
-                    Json.str(request.body(), "password")));
+            Response.json(exchange, 200, authService.login(request.body()));
+            return true;
+        }
+        if (request.is("auth", "phone-code") && request.method("POST")) {
+            Response.json(exchange, 200, authService.issuePhoneCode(
+                    String.valueOf(request.body().getOrDefault("phoneNumber", ""))));
             return true;
         }
         if (request.is("auth", "me") && request.method("GET")) {

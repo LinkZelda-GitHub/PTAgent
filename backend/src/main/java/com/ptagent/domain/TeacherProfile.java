@@ -53,7 +53,7 @@ public class TeacherProfile {
     public Map<String, Object> toMap(User user) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("teacherId", teacherId);
-        map.put("username", user == null ? "" : user.username);
+        map.put("displayName", user == null ? "" : user.displayName);
         map.put("enabled", user == null || user.enabled);
         map.put("realName", realName);
         map.put("gender", gender);

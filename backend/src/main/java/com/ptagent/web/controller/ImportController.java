@@ -18,7 +18,8 @@ public class ImportController implements ApiController {
     @Override
     public boolean handle(ApiRequest request, HttpExchange exchange) throws IOException {
         if (request.is("import", "demands", "xlsx") && request.method("POST")) {
-            Response.json(exchange, 201, demandImportService.importDemandXlsx(request.body()));
+            Response.json(exchange, 201, demandImportService.importDemandXlsx(
+                    request.bodyWithActor("adminId")));
             return true;
         }
         return false;

@@ -1,8 +1,11 @@
 package com.ptagent.web;
 
 import com.ptagent.common.Json;
+import com.ptagent.common.AppConfig;
+import com.ptagent.common.AppVersion;
 import com.ptagent.exception.ApiException;
 import com.ptagent.exception.ErrorCode;
+import com.ptagent.domain.User;
 import com.ptagent.repository.Repository;
 import com.ptagent.service.ApplicationService;
 import com.ptagent.service.AuditService;
@@ -39,6 +42,7 @@ import java.util.UUID;
 public class ApiRouter implements HttpHandler {
     private static final String TRACE_ATTRIBUTE = "traceId";
     private static final String STATUS_ATTRIBUTE = "responseStatus";
+    private static final String ACTOR_ATTRIBUTE = "actorId";
     private final List<ApiController> controllers;
     private final AuthService authService;
 
@@ -73,16 +77,17 @@ public class ApiRouter implements HttpHandler {
         String traceId = traceId(exchange);
         exchange.setAttribute(TRACE_ATTRIBUTE, traceId);
         exchange.getResponseHeaders().set("X-Request-Id", traceId);
-        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
-        if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-            Response.noContent(exchange);
-            log(exchange, start, null);
-            return;
-        }
+        SecurityHeaders.apply(exchange);
 
         try {
+            if (!SecurityHeaders.applyCors(exchange)) {
+                Response.error(exchange, 403, ErrorCode.ORIGIN_NOT_ALLOWED, "请求来源不在允许列表");
+                return;
+            }
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Response.noContent(exchange);
+                return;
+            }
             route(exchange);
         } catch (ApiException e) {
             Response.error(exchange, e.status(), e.code(), e.getMessage());
@@ -101,14 +106,22 @@ public class ApiRouter implements HttpHandler {
         List<String> path = pathSegments(exchange);
         Map<String, String> query = query(exchange);
         Map<String, Object> body = body(exchange);
-        ApiRequest request = new ApiRequest(method, path, query, body, bearerToken(exchange));
+        ApiRequest request = new ApiRequest(method, path, query, body, bearerToken(exchange), null);
 
         if (path.isEmpty() && request.method("GET")) {
-            Response.json(exchange, 200, Json.object("service", "PTAgent API", "status", "running"));
+            Response.json(exchange, 200, Json.object(
+                    "service", "PTAgent API",
+                    "status", "running",
+                    "version", AppVersion.CURRENT,
+                    "environment", AppConfig.environment(),
+                    "demoAuth", AppConfig.demoAuthEnabled()
+            ));
             return;
         }
         if (!isPublic(request)) {
-            authService.requireSession(request.bearerToken());
+            User actor = authService.requireSession(request.bearerToken());
+            exchange.setAttribute(ACTOR_ATTRIBUTE, actor.id);
+            request = request.authenticated(actor);
         }
         for (ApiController controller : controllers) {
             if (controller.handle(request, exchange)) {
@@ -155,7 +168,16 @@ public class ApiRouter implements HttpHandler {
         if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
             return new LinkedHashMap<>();
         }
-        String text = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+        if (contentType == null || !contentType.toLowerCase().startsWith("application/json")) {
+            throw new ApiException(415, ErrorCode.UNSUPPORTED_MEDIA_TYPE, "请求体必须使用application/json");
+        }
+        int limit = AppConfig.maxRequestBytes();
+        byte[] bytes = exchange.getRequestBody().readNBytes(limit + 1);
+        if (bytes.length > limit) {
+            throw new ApiException(413, ErrorCode.REQUEST_TOO_LARGE, "请求体超过大小限制");
+        }
+        String text = new String(bytes, StandardCharsets.UTF_8);
         return Json.parseObject(text);
     }
 
@@ -182,6 +204,7 @@ public class ApiRouter implements HttpHandler {
     private boolean isPublic(ApiRequest request) {
         return request.is("bootstrap")
                 || request.is("auth", "login")
+                || request.is("auth", "phone-code")
                 || request.is("auth", "register-teacher");
     }
 
@@ -192,6 +215,7 @@ public class ApiRouter implements HttpHandler {
                 "traceId", exchange.getAttribute(TRACE_ATTRIBUTE),
                 "method", exchange.getRequestMethod(),
                 "path", exchange.getRequestURI().getPath(),
+                "actorId", exchange.getAttribute(ACTOR_ATTRIBUTE),
                 "status", status == null ? 0 : status,
                 "elapsedMs", elapsedMs,
                 "message", message == null ? "" : message

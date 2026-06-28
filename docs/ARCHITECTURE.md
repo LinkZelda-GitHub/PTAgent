@@ -5,7 +5,7 @@
 ```text
 backend/src/main/java/com/ptagent
   App.java                 应用启动入口
-  common/                  JSON、密码哈希、XLSX 读取等基础工具
+  common/                  运行配置、版本、JSON、XLSX 读取等基础工具
   domain/                  领域模型和状态枚举
   exception/               API 错误码与业务异常
   repository/              Repository 接口、账号文件数据库与内存业务仓库
@@ -48,23 +48,32 @@ docs/                      项目文档
 
 ## 权限与审计
 
-- `AuthService` 在登录成功后签发 12 小时内存令牌，提供当前会话恢复和退出失效能力；`ApiRouter` 对非公开 API 统一校验 Bearer Token。
-- `AccessGuard` 集中处理 MVP 阶段的角色校验，按 `adminId`、`teacherId`、`actorId` 或 `submitAdminId` 找到操作者并验证账号启用状态。
+- `AuthService` 统一处理微信、QQ、手机号验证码登录，成功后签发 12 小时内存令牌；`ApiRouter` 对非公开 API 统一校验 Bearer Token。
+- `ApiRouter` 校验令牌后把登录用户写入 `ApiRequest` 认证上下文；controller 会用该身份覆盖写请求中的操作者字段。
+- `AccessGuard` 集中处理 MVP 阶段的角色校验，服务层只接收 Web 边界注入的可信操作者 ID。
 - 关键写操作会写入内存 `AuditLog`：发布/关闭需求、XLSX 导入、申请接单、审核申请、启用/禁用教师、简历提交/标记、授课记录和评价。
-- `AuditController` 提供 `/api/audit-logs?actorId={id}`，仅管理员和最高管理员可查看。
-- 当前会话只保存在单进程内存中，服务重启后失效；迁移 Spring Security/JWT 后，操作者应直接来自认证上下文，而不是请求体。
+- `AuditController` 提供 `/api/audit-logs`，仅管理员和最高管理员可查看；请求日志同步记录认证用户 ID。
+- 当前会话只保存在单进程内存中，服务重启后失效；迁移 Spring Security/JWT 时可将轻量认证上下文替换为框架安全上下文。
+
+## 预发布安全边界
+
+- `AppConfig` 统一读取环境、演示认证、允许来源和请求大小配置；`AppVersion` 提供发布版本号。
+- `SecurityHeaders` 为 API、健康检查和静态资源统一设置浏览器安全响应头，并只允许同主机或精确配置的 CORS 来源。
+- `ApiRouter` 只接受 JSON 请求，采用有界读取避免大请求耗尽内存，错误统一返回稳定错误码。
+- `AuthService` 在单进程内限制验证码发送频率、验证码错误次数和登录失败次数；这些状态接入 Redis 后才能支持多实例。
+- `Demand` 按调用角色输出运营视图或教师脱敏视图，未匹配教师拿不到家长完整联系方式和精确地址。
 
 ## 账号持久化
 
-- `AccountDatabase` 使用 JDK 文件 API 和项目内置 JSON 工具维护 `data/ptagent-accounts.json`。
+- `AccountDatabase` 使用 JDK 文件 API 和项目内置 JSON 工具维护 schema v2 的 `data/ptagent-accounts.json`，旧密码账号读取后自动转换为第三方登录身份。
 - `AppRepository` 启动时先载入示例数据，再用账号数据库恢复注册用户、教师资料和审核状态。
 - 用户创建、登录时间更新、资料修改、评分变化和账号启用状态都会触发原子快照写入。
 - 服务测试默认使用 `new AppRepository(false)` 隔离本地数据库，持久化测试使用临时目录。
-- `database/migrations/V1__init.sql` 是后续 MySQL Repository 的正式结构基线。
+- `database/migrations` 保存 MySQL Repository 的版本化结构基线和无密码账号迁移。
 
 ## 运维基础
 
-- `HealthHandler` 提供 `/actuator/health` 健康检查，返回混合仓储类型、账号数据库位置、用户、需求和订单的基础状态。
+- `HealthHandler` 提供 `/actuator/health` 健康检查；本地环境返回诊断详情，`production` 环境隐藏数据库路径和业务数量。
 - `ApiRouter` 会为每个 API 请求生成或沿用 `X-Request-Id`，写入响应头。
 - API 异常响应包含 `traceId`，控制台访问日志以 JSON 字符串输出 `traceId`、方法、路径、状态码和耗时。
 
@@ -129,3 +138,5 @@ ImportController -> DemandImportService -> XlsxReader -> Repository
 ## 生产化方向
 
 当前版本优先保证本地可运行和多文件架构完整。迁移到生产栈时，建议保持 `service` 层接口不变，将 `web` 替换为 Spring MVC Controller，将 `repository` 替换为 MyBatis-Plus Mapper，并引入 MySQL/Redis/OSS。
+
+`scripts/package.ps1` 生成外部服务接入前的预集成包。它不是正式生产镜像；生产发布仍需完成 `docs/DEVELOPMENT_NOTES.md` 中的全部阻断项。

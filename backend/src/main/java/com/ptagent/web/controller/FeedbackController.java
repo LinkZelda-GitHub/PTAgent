@@ -22,7 +22,8 @@ public class FeedbackController implements ApiController {
             return true;
         }
         if (request.is("feedbacks") && request.method("POST")) {
-            Response.json(exchange, 201, feedbackService.createFeedback(request.body()));
+            Response.json(exchange, 201, feedbackService.createFeedback(
+                    request.bodyWithActor("submitAdminId")));
             return true;
         }
         return false;

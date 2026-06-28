@@ -8,7 +8,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
-$Migration = Join-Path $Root "database\migrations\V1__init.sql"
+$MigrationDirectory = Join-Path $Root "database\migrations"
+$Migrations = Get-ChildItem -LiteralPath $MigrationDirectory -Filter "*.sql" | Sort-Object Name
 $Mysql = Get-Command mysql -ErrorAction SilentlyContinue
 
 if (-not $Mysql) {
@@ -22,9 +23,12 @@ try {
     throw "Failed to create database $Database."
   }
 
-  Get-Content -Raw -Encoding utf8 $Migration | & $Mysql.Source --host=$Server --port=$Port --user=$Username --database=$Database
-  if ($LASTEXITCODE -ne 0) {
-    throw "Failed to apply migration $Migration."
+  foreach ($Migration in $Migrations) {
+    Get-Content -Raw -Encoding utf8 $Migration.FullName | & $Mysql.Source --host=$Server --port=$Port --user=$Username --database=$Database
+    if ($LASTEXITCODE -ne 0) {
+      throw "Failed to apply migration $($Migration.FullName)."
+    }
+    Write-Host "Applied migration: $($Migration.Name)"
   }
 } finally {
   Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue

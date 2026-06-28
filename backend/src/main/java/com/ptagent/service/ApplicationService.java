@@ -26,7 +26,12 @@ public class ApplicationService {
     }
 
     public List<Map<String, Object>> listApplications(String status) {
+        return listApplications(status, 0);
+    }
+
+    public List<Map<String, Object>> listApplications(String status, long teacherId) {
         return repository.allApplications().stream()
+                .filter(application -> teacherId == 0 || application.teacherId == teacherId)
                 .filter(application -> status == null || status.isBlank() || status.equalsIgnoreCase("ALL")
                         || application.status.name().equalsIgnoreCase(status))
                 .sorted(Comparator.comparing((DemandApplication item) -> item.applyTime).reversed())

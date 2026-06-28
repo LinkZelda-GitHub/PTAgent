@@ -24,8 +24,10 @@
 
 | 错误码 | 说明 |
 |---|---|
-| `AUTH_USERNAME_EXISTS` | 用户名已注册 |
-| `AUTH_INVALID_PASSWORD` | 密码不正确 |
+| `AUTH_LOGIN_METHOD_INVALID` | 登录方式不受支持 |
+| `AUTH_IDENTITY_EXISTS` | 微信、QQ或手机号身份已绑定 |
+| `AUTH_VERIFICATION_CODE_INVALID` | 手机验证码不存在或不正确 |
+| `AUTH_VERIFICATION_CODE_EXPIRED` | 手机验证码已过期 |
 | `AUTH_DISABLED` | 账号待审核或已被禁用 |
 | `AUTH_PHONE_EXISTS` | 手机号已注册 |
 | `AUTH_EMAIL_EXISTS` | 邮箱已注册 |
@@ -38,6 +40,20 @@
 | `ROUTE_NOT_FOUND` | 接口不存在 |
 | `IMPORT_FILE_NOT_FOUND` | 导入文件不存在 |
 | `IMPORT_INVALID_FILE` | 导入文件格式或内容不符合要求 |
+| `AUTH_RATE_LIMITED` | 登录或验证码操作过于频繁 |
+| `AUTH_PROVIDER_UNAVAILABLE` | 演示认证已关闭且正式认证服务尚未接入 |
+| `REQUEST_TOO_LARGE` | 请求体超过配置上限 |
+| `UNSUPPORTED_MEDIA_TYPE` | 非 GET 请求未使用 `application/json` |
+| `ORIGIN_NOT_ALLOWED` | 跨域来源不在允许列表 |
+
+## HTTP 安全基线
+
+- 非 GET API 必须使用 `Content-Type: application/json`。
+- 请求体默认不超过 1 MB，可用 `PTAGENT_MAX_REQUEST_BYTES` 调整。
+- CORS 默认只接受同主机来源，额外来源必须通过 `PTAGENT_ALLOWED_ORIGIN` 精确配置。
+- API 和静态页面响应包含 CSP、`X-Content-Type-Options`、`X-Frame-Options`、Referrer Policy 和 Permissions Policy。
+- 手机验证码有效期 5 分钟，60 秒内不可重复发送，每小时最多 5 次，单个验证码最多错误 5 次。
+- 同一登录身份连续失败 5 次后临时限制 15 分钟。
 
 ## 基础
 
@@ -54,6 +70,9 @@
   "ok": true,
   "data": {
     "status": "UP",
+    "version": "0.9.0-rc1",
+    "environment": "local",
+    "demoAuth": true,
     "time": "2026-06-26T15:45:00",
     "repository": "file+memory",
     "database": "E:\\PTAgent\\data\\ptagent-accounts.json",
@@ -64,15 +83,19 @@
 }
 ```
 
+上例为本地环境响应；`production` 环境会隐藏数据库路径和业务数量，避免公开内部部署细节。
+
 ## 权限与审计
 
-当前 MVP 使用服务端内存会话。登录成功后返回 12 小时有效的令牌；除 `/api`、`/api/bootstrap`、登录和教师注册外，请求都需要携带：
+当前 MVP 使用服务端内存会话。登录成功后返回 12 小时有效的令牌；除 `/api`、`/api/bootstrap`、登录、获取手机验证码和教师注册外，请求都需要携带：
 
 ```http
 Authorization: Bearer <token>
 ```
 
-写操作仍通过请求体中的 `adminId`、`teacherId`、`actorId` 或 `submitAdminId` 表示领域操作者，并由服务端校验账号状态和角色。迁移 Spring Security 时应改为直接从认证上下文取得操作者 ID。
+所有写操作的操作者均来自 Bearer 登录会话。controller 会覆盖请求体中的 `adminId`、`teacherId`、`actorId` 或 `submitAdminId`，客户端不能通过伪造 ID 提升权限。教师数据列表也会按认证身份在服务端收敛范围。
+
+教师调用 `/api/applications`、`/api/teachers`、`/api/resumes`、`/api/orders`、`/api/records` 和 `/api/notifications` 时只返回当前教师的数据；管理员按业务权限读取管理范围内的数据。
 
 | 场景 | 权限要求 |
 |---|---|
@@ -84,7 +107,7 @@ Authorization: Bearer <token>
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/audit-logs?actorId=100` | 查看关键操作审计日志 |
+| GET | `/api/audit-logs` | 查看关键操作审计日志 |
 
 审计日志响应示例：
 
@@ -107,19 +130,34 @@ Authorization: Bearer <token>
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/api/auth/login` | 登录 |
+| POST | `/api/auth/login` | 微信、QQ或手机号登录 |
+| POST | `/api/auth/phone-code` | 获取手机验证码 |
 | GET | `/api/auth/me` | 恢复当前登录会话 |
 | POST | `/api/auth/logout` | 退出并作废当前令牌 |
 | POST | `/api/auth/register-teacher` | 教师注册 |
 
-登录请求：
+微信登录请求：
 
 ```json
 {
-  "username": "teacher",
-  "password": "teacher123"
+  "loginMethod": "WECHAT",
+  "loginId": "ptagent_super"
 }
 ```
+
+QQ 登录只需将 `loginMethod` 改为 `QQ`。手机号登录应先调用 `/api/auth/phone-code`，再提交：
+
+```json
+{
+  "loginMethod": "PHONE",
+  "loginId": "13800000003",
+  "verificationCode": "123456"
+}
+```
+
+本地适配器会在验证码响应的 `demoCode` 字段中返回验证码，仅用于离线演示，生产环境必须移除该字段。
+
+设置 `PTAGENT_DEMO_AUTH=false` 后，本地微信、QQ和验证码替代全部关闭，并返回 `AUTH_PROVIDER_UNAVAILABLE`；接入正式服务前不应把该状态作为可上线认证方案。
 
 登录响应包含 `token`、`expiresAt`、`user`，教师账号还会包含 `profile`。令牌仅保存在服务端内存中，服务重启后需要重新登录。
 
@@ -127,8 +165,9 @@ Authorization: Bearer <token>
 
 ```json
 {
-  "username": "new_teacher",
-  "password": "Strong123",
+  "loginMethod": "PHONE",
+  "loginId": "13912345678",
+  "verificationCode": "123456",
   "realName": "李老师",
   "gender": 2,
   "phoneNumber": "13912345678",
@@ -165,13 +204,15 @@ Authorization: Bearer <token>
 | `region` | 区域 |
 | `tag` | 资质标签 |
 | `sort` | `latest`、`distance`、`salaryHigh`、`salaryLow`、`match` |
-| `teacherId` | 计算匹配度时使用 |
+
+教师登录时，匹配度使用当前会话中的教师身份自动计算，不接收客户端指定的 `teacherId`。
+
+教师浏览未匹配需求时，家长姓名、电话、微信、详细地址和精确坐标会在服务端脱敏；匹配成功生成课程订单后才返回履约所需联系方式。
 
 导入请求：
 
 ```json
 {
-  "adminId": 101,
   "filePath": "example.xlsx"
 }
 ```
@@ -208,7 +249,6 @@ Authorization: Bearer <token>
 
 ```json
 {
-  "adminId": 100,
   "status": "APPROVED"
 }
 ```
@@ -240,4 +280,4 @@ Authorization: Bearer <token>
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/notifications?userId={id}` | 用户通知列表 |
+| GET | `/api/notifications` | 当前登录用户的通知列表 |

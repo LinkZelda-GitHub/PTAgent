@@ -18,6 +18,7 @@ public class StaticFileHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        SecurityHeaders.apply(exchange);
         if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
             Response.error(exchange, 405, ErrorCode.METHOD_NOT_ALLOWED, "仅支持GET");
             return;

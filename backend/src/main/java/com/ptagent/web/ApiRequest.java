@@ -1,13 +1,16 @@
 package com.ptagent.web;
 
+import com.ptagent.domain.RoleType;
+import com.ptagent.domain.User;
 import com.ptagent.exception.ApiException;
 import com.ptagent.exception.ErrorCode;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public record ApiRequest(String method, List<String> path, Map<String, String> query, Map<String, Object> body,
-                         String bearerToken) {
+                         String bearerToken, User authenticatedUser) {
     public boolean method(String expected) {
         return method.equalsIgnoreCase(expected);
     }
@@ -42,5 +45,39 @@ public record ApiRequest(String method, List<String> path, Map<String, String> q
         } catch (NumberFormatException e) {
             return fallback;
         }
+    }
+
+    public ApiRequest authenticated(User user) {
+        return new ApiRequest(method, path, query, body, bearerToken, user);
+    }
+
+    public User actor() {
+        if (authenticatedUser == null) {
+            throw new ApiException(401, ErrorCode.AUTH_REQUIRED, "请先登录");
+        }
+        return authenticatedUser;
+    }
+
+    public long actorId() {
+        return actor().id;
+    }
+
+    public boolean actorIs(RoleType role) {
+        return actor().role == role;
+    }
+
+    public Map<String, Object> bodyWithActor(String actorKey) {
+        Map<String, Object> trustedBody = new LinkedHashMap<>(body);
+        trustedBody.put(actorKey, actorId());
+        return trustedBody;
+    }
+
+    public Map<String, String> queryForActorRole(String identityKey, RoleType role) {
+        Map<String, String> trustedQuery = new LinkedHashMap<>(query);
+        trustedQuery.remove(identityKey);
+        if (actorIs(role)) {
+            trustedQuery.put(identityKey, String.valueOf(actorId()));
+        }
+        return trustedQuery;
     }
 }

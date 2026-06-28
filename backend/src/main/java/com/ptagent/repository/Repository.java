@@ -6,6 +6,7 @@ import com.ptagent.domain.Demand;
 import com.ptagent.domain.DemandApplication;
 import com.ptagent.domain.Feedback;
 import com.ptagent.domain.Notification;
+import com.ptagent.domain.LoginMethod;
 import com.ptagent.domain.RoleType;
 import com.ptagent.domain.TeacherProfile;
 import com.ptagent.domain.TeacherResume;
@@ -25,11 +26,12 @@ public interface Repository {
         return "";
     }
 
-    User createUser(String username, String password, RoleType role, String phone, String email, boolean enabled);
+    User createUser(String displayName, LoginMethod loginMethod, String loginId, RoleType role, String phone,
+                    String email, boolean enabled);
 
     Optional<User> findUser(long id);
 
-    Optional<User> findUserByUsername(String username);
+    Optional<User> findUserByLogin(LoginMethod loginMethod, String loginId);
 
     List<User> allUsers();
 

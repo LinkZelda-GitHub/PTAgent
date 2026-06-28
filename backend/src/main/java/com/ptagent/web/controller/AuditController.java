@@ -18,7 +18,7 @@ public class AuditController implements ApiController {
     @Override
     public boolean handle(ApiRequest request, HttpExchange exchange) throws IOException {
         if (request.is("audit-logs") && request.method("GET")) {
-            Response.json(exchange, 200, auditService.listAuditLogs(request.queryLong("actorId", 0)));
+            Response.json(exchange, 200, auditService.listAuditLogs(request.actorId()));
             return true;
         }
         return false;

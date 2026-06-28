@@ -84,7 +84,7 @@ public class DemandService {
         };
         return projections.stream()
                 .sorted(comparator)
-                .map(item -> item.demand.toMap(round1(item.distanceKm), item.matchScore))
+                .map(item -> item.demand.toMap(round1(item.distanceKm), item.matchScore, teacherId == 0))
                 .toList();
     }
 
@@ -93,7 +93,7 @@ public class DemandService {
                 .orElseThrow(() -> ApiException.notFound(ErrorCode.DEMAND_NOT_FOUND, "需求不存在"));
         TeacherProfile profile = repository.findProfile(teacherId).orElse(null);
         double distance = distanceKm(DEFAULT_TEACHER_LAT, DEFAULT_TEACHER_LON, demand.latitude, demand.longitude);
-        return demand.toMap(round1(distance), matchScore(profile, demand, distance));
+        return demand.toMap(round1(distance), matchScore(profile, demand, distance), teacherId == 0);
     }
 
     public Map<String, Object> createDemand(Map<String, Object> body) {

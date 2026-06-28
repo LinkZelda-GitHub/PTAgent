@@ -1,6 +1,7 @@
 package com.ptagent.service;
 
 import com.ptagent.common.Json;
+import com.ptagent.common.AppConfig;
 import com.ptagent.domain.ApplicationStatus;
 import com.ptagent.domain.DemandStatus;
 import com.ptagent.domain.RoleType;
@@ -27,11 +28,15 @@ public class DashboardService {
         map.put("grades", grades());
         map.put("regions", regions());
         map.put("tags", tags());
-        map.put("demoAccounts", List.of(
-                Json.object("username", "super", "password", "admin123", "role", "最高管理员"),
-                Json.object("username", "admin", "password", "admin123", "role", "普通管理员"),
-                Json.object("username", "teacher", "password", "teacher123", "role", "教师")
-        ));
+        map.put("demoAuthEnabled", AppConfig.demoAuthEnabled());
+        map.put("demoAccounts", AppConfig.demoAuthEnabled() ? List.of(
+                Json.object("loginMethod", "WECHAT", "loginId", "ptagent_super",
+                        "methodLabel", "微信", "role", "最高管理员"),
+                Json.object("loginMethod", "QQ", "loginId", "10001001",
+                        "methodLabel", "QQ", "role", "普通管理员"),
+                Json.object("loginMethod", "PHONE", "loginId", "13800000003",
+                        "methodLabel", "手机号", "role", "教师")
+        ) : List.of());
         return map;
     }
 

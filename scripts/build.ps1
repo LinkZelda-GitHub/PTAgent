@@ -5,6 +5,9 @@ $Root = Split-Path -Parent $PSScriptRoot
 $BuildDir = Join-Path $Root "build\classes"
 $SourceDir = Join-Path $Root "backend\src\main\java"
 
+if (Test-Path -LiteralPath $BuildDir) {
+  Get-ChildItem -LiteralPath $BuildDir -Recurse -Filter "*.class" -File | Remove-Item -Force
+}
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 $Files = Get-ChildItem -Path $SourceDir -Recurse -Filter "*.java" | ForEach-Object { $_.FullName }
 

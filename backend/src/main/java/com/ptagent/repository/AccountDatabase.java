@@ -1,6 +1,7 @@
 package com.ptagent.repository;
 
 import com.ptagent.common.Json;
+import com.ptagent.domain.LoginMethod;
 import com.ptagent.domain.RoleType;
 import com.ptagent.domain.TeacherProfile;
 import com.ptagent.domain.User;
@@ -45,7 +46,7 @@ final class AccountDatabase {
 
     synchronized void write(List<User> users, List<TeacherProfile> profiles) {
         Map<String, Object> root = new LinkedHashMap<>();
-        root.put("schemaVersion", 1);
+        root.put("schemaVersion", 2);
         root.put("updatedAt", LocalDateTime.now().toString());
         root.put("users", users.stream().map(this::userMap).toList());
         root.put("profiles", profiles.stream().map(this::profileMap).toList());
@@ -70,7 +71,8 @@ final class AccountDatabase {
 
     private Map<String, Object> userMap(User user) {
         return Json.object(
-                "id", user.id, "username", user.username, "passwordHash", user.passwordHash,
+                "id", user.id, "displayName", user.displayName,
+                "loginMethod", user.loginMethod.name(), "loginId", user.loginId,
                 "role", user.role.name(), "phoneNumber", user.phoneNumber, "email", user.email,
                 "enabled", user.enabled, "registerTime", text(user.registerTime), "lastLogin", text(user.lastLogin)
         );
@@ -96,15 +98,25 @@ final class AccountDatabase {
         for (Map<String, Object> item : objectList(value)) {
             User user = new User();
             user.id = Json.longValue(item, "id", 0);
-            user.username = Json.str(item, "username");
-            user.passwordHash = Json.str(item, "passwordHash");
             user.role = RoleType.valueOf(Json.str(item, "role"));
             user.phoneNumber = Json.str(item, "phoneNumber");
             user.email = Json.str(item, "email");
+            String legacyUsername = Json.str(item, "username");
+            user.displayName = Json.str(item, "displayName");
+            if (user.displayName.isBlank()) {
+                user.displayName = legacyUsername.isBlank() ? user.role.label : legacyUsername;
+            }
+            String method = Json.str(item, "loginMethod");
+            user.loginMethod = method.isBlank() ? legacyLoginMethod(legacyUsername)
+                    : LoginMethod.valueOf(method);
+            user.loginId = user.loginMethod.normalize(Json.str(item, "loginId"));
+            if (user.loginId.isBlank()) {
+                user.loginId = legacyLoginId(legacyUsername, user.phoneNumber, user.loginMethod);
+            }
             user.enabled = Json.bool(item, "enabled", false);
             user.registerTime = dateTime(item, "registerTime");
             user.lastLogin = dateTime(item, "lastLogin");
-            if (user.id > 0 && !user.username.isBlank() && !user.passwordHash.isBlank()) {
+            if (user.id > 0 && !user.displayName.isBlank() && !user.loginId.isBlank()) {
                 result.add(user);
             }
         }
@@ -159,6 +171,26 @@ final class AccountDatabase {
     private LocalDateTime dateTime(Map<String, Object> item, String key) {
         String value = Json.str(item, key);
         return value.isBlank() ? null : LocalDateTime.parse(value);
+    }
+
+    private LoginMethod legacyLoginMethod(String username) {
+        if ("super".equalsIgnoreCase(username) || "wang".equalsIgnoreCase(username)) {
+            return LoginMethod.WECHAT;
+        }
+        if ("admin".equalsIgnoreCase(username)) {
+            return LoginMethod.QQ;
+        }
+        return LoginMethod.PHONE;
+    }
+
+    private String legacyLoginId(String username, String phoneNumber, LoginMethod loginMethod) {
+        if (loginMethod == LoginMethod.WECHAT) {
+            return "super".equalsIgnoreCase(username) ? "ptagent_super" : "wangfang_edu";
+        }
+        if (loginMethod == LoginMethod.QQ) {
+            return "10001001";
+        }
+        return phoneNumber;
     }
 
     private String text(LocalDateTime value) {

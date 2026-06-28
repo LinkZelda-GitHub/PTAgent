@@ -31,8 +31,15 @@ public class CourseService {
     }
 
     public List<Map<String, Object>> listRecords(long orderId) {
+        return listRecords(orderId, 0);
+    }
+
+    public List<Map<String, Object>> listRecords(long orderId, long teacherId) {
         return repository.allTeachingRecords().stream()
                 .filter(record -> orderId == 0 || record.orderId == orderId)
+                .filter(record -> teacherId == 0 || repository.findOrder(record.orderId)
+                        .map(order -> order.teacherId == teacherId)
+                        .orElse(false))
                 .sorted(Comparator.comparing((TeachingRecord record) -> record.lessonDate).reversed())
                 .map(TeachingRecord::toMap)
                 .toList();

@@ -1,5 +1,6 @@
 package com.ptagent;
 
+import com.ptagent.common.AppConfig;
 import com.ptagent.repository.AppRepository;
 import com.ptagent.repository.Repository;
 import com.ptagent.web.ApiRouter;
@@ -14,6 +15,7 @@ import java.util.concurrent.Executors;
 
 public class App {
     public static void main(String[] args) throws IOException, InterruptedException {
+        AppConfig.validateStartup();
         int port = port(args);
         Repository repository = new AppRepository();
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);

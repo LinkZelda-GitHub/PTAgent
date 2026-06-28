@@ -1,6 +1,6 @@
-import { renderDemandMap } from "./map.js?v=20260627-6";
-import { state, tabs } from "./state.js?v=20260627-6";
-import { $, formatDateTime, html } from "./view.js?v=20260627-6";
+import { renderDemandMap } from "./map.js?v=20260628-4";
+import { state, tabs } from "./state.js?v=20260628-4";
+import { $, formatDateTime, html } from "./view.js?v=20260628-4";
 
 export function render() {
   renderAuthState();
@@ -18,11 +18,12 @@ export function render() {
 }
 
 export function renderDemoAccounts() {
+  $("#demoLoginPanel").hidden = !state.bootstrap.demoAuthEnabled;
   $("#demoAccounts").innerHTML = state.bootstrap.demoAccounts.map((account) => `
     <button type="button" class="demo-btn" data-action="demo-login"
-      data-username="${html(account.username)}" data-password="${html(account.password)}">
-      <span aria-hidden="true">•</span>
-      ${html(account.role)}：${html(account.username)}
+      data-method="${html(account.loginMethod)}" data-login-id="${html(account.loginId)}">
+      <span class="method-mark method-${html(account.loginMethod.toLowerCase())}" aria-hidden="true">${html(methodMark(account.loginMethod))}</span>
+      ${html(account.role)} · ${html(account.methodLabel)}
     </button>
   `).join("");
 }
@@ -69,9 +70,9 @@ function renderHeader() {
       : `<strong>登录 PTAgent</strong><span class="muted">家教资源工作台</span>`;
   renderAuthPanel();
   $("#sidebarUser").innerHTML = state.user ? `
-    <span class="sidebar-user-avatar" aria-hidden="true">${html((state.profile?.realName || state.user.username).slice(0, 1))}</span>
+    <span class="sidebar-user-avatar" aria-hidden="true">${html((state.profile?.realName || state.user.displayName).slice(0, 1))}</span>
     <span class="sidebar-user-copy">
-      <strong>${html(state.profile?.realName || state.user.username)}</strong>
+      <strong>${html(state.profile?.realName || state.user.displayName)}</strong>
       <small>${html(state.user.roleLabel)}</small>
     </span>
   ` : "";
@@ -87,8 +88,53 @@ function renderAuthPanel() {
   $("#loginModeTab").setAttribute("aria-selected", String(mode === "login"));
   $("#registerModeTab").setAttribute("aria-selected", String(mode === "register"));
   document.querySelectorAll(".login-only-panel").forEach((panel) => {
-    panel.hidden = mode !== "login";
+    panel.hidden = mode !== "login" || (panel.id === "demoLoginPanel" && !state.bootstrap?.demoAuthEnabled);
   });
+  renderLoginMethodControls();
+}
+
+function renderLoginMethodControls() {
+  updateMethodSwitch("#loginMethodSwitch", state.loginMethod);
+  const loginConfig = methodConfig(state.loginMethod);
+  $("#loginIdentityLabel").textContent = loginConfig.identityLabel;
+  $("#loginIdentity").placeholder = loginConfig.placeholder;
+  $("#loginIdentity").inputMode = loginConfig.inputMode;
+  $("#loginPhoneCodeField").hidden = state.loginMethod !== "PHONE";
+  $("#loginForm").verificationCode.required = state.loginMethod === "PHONE";
+  $("#loginSubmitText").textContent = `${loginConfig.label}登录`;
+
+  updateMethodSwitch("#registerMethodSwitch", state.registrationLoginMethod);
+  const registerConfig = methodConfig(state.registrationLoginMethod);
+  const usesPhone = state.registrationLoginMethod === "PHONE";
+  $("#registerLoginIdField").hidden = usesPhone;
+  $("#registerLoginIdLabel").textContent = registerConfig.identityLabel;
+  $("#registerLoginId").placeholder = registerConfig.placeholder;
+  $("#registerLoginId").inputMode = registerConfig.inputMode;
+  $("#registerLoginId").required = !usesPhone;
+  $("#registerPhoneCodeField").hidden = !usesPhone;
+  $("#registerForm").verificationCode.required = usesPhone;
+}
+
+function updateMethodSwitch(selector, method) {
+  document.querySelectorAll(`${selector} [data-method]`).forEach((button) => {
+    const active = button.dataset.method === method;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+}
+
+function methodConfig(method) {
+  if (method === "QQ") {
+    return { label: "QQ", identityLabel: "QQ号", placeholder: "请输入QQ号", inputMode: "numeric" };
+  }
+  if (method === "PHONE") {
+    return { label: "手机号", identityLabel: "手机号", placeholder: "请输入11位手机号", inputMode: "numeric" };
+  }
+  return { label: "微信", identityLabel: "微信标识", placeholder: "请输入微信标识", inputMode: "text" };
+}
+
+function methodMark(method) {
+  return method === "WECHAT" ? "微" : method === "PHONE" ? "手" : "Q";
 }
 
 function renderNotifications() {
@@ -173,9 +219,7 @@ function renderAdminDemands() {
 
 function renderApplications() {
   const list = $("#applicationList");
-  const visibleApplications = state.user?.role === "TEACHER"
-    ? state.applications.filter((application) => application.teacherId === state.user.id)
-    : state.applications;
+  const visibleApplications = state.applications;
   if (!visibleApplications.length) {
     list.innerHTML = emptyBlock("暂无申请记录。");
     return;
@@ -201,9 +245,7 @@ function renderApplications() {
 }
 
 function renderTeachers() {
-  const visibleTeachers = state.user?.role === "TEACHER"
-    ? state.teachers.filter((teacher) => teacher.teacherId === state.user.id)
-    : state.teachers;
+  const visibleTeachers = state.teachers;
   $("#teacherGrid").innerHTML = visibleTeachers.length ? visibleTeachers.map((teacher) => `
     <article class="teacher-card">
       <div class="card-head">
@@ -230,13 +272,11 @@ function renderTeachers() {
     </article>
   `).join("") : emptyBlock("暂无教师资料。");
 
-  const resumeTeachers = state.user?.role === "TEACHER" ? visibleTeachers : state.teachers;
+  const resumeTeachers = state.teachers;
   $("#resumeTeacher").innerHTML = resumeTeachers.map((teacher) =>
     `<option value="${teacher.teacherId}">${html(teacher.realName)}</option>`).join("");
 
-  const visibleResumes = state.user?.role === "TEACHER"
-    ? state.resumes.filter((resume) => resume.teacherId === state.user.id)
-    : state.resumes;
+  const visibleResumes = state.resumes;
   $("#resumeRows").innerHTML = visibleResumes.length ? visibleResumes.map((resume) => `
     <tr>
       <td>${html(resume.teacherName)}</td>

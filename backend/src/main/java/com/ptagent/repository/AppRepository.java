@@ -1,6 +1,5 @@
 package com.ptagent.repository;
 
-import com.ptagent.common.Passwords;
 import com.ptagent.domain.ApplicationStatus;
 import com.ptagent.domain.AuditLog;
 import com.ptagent.domain.CourseOrder;
@@ -9,6 +8,7 @@ import com.ptagent.domain.DemandApplication;
 import com.ptagent.domain.DemandStatus;
 import com.ptagent.domain.Feedback;
 import com.ptagent.domain.Notification;
+import com.ptagent.domain.LoginMethod;
 import com.ptagent.domain.OrderStatus;
 import com.ptagent.domain.RoleType;
 import com.ptagent.domain.TeacherProfile;
@@ -83,11 +83,13 @@ public class AppRepository implements Repository {
         return accountDatabase == null ? "" : accountDatabase.location();
     }
 
-    public synchronized User createUser(String username, String password, RoleType role, String phone, String email, boolean enabled) {
+    public synchronized User createUser(String displayName, LoginMethod loginMethod, String loginId, RoleType role,
+                                        String phone, String email, boolean enabled) {
         User user = new User();
         user.id = userIds.getAndIncrement();
-        user.username = username;
-        user.passwordHash = Passwords.sha256(password);
+        user.displayName = displayName;
+        user.loginMethod = loginMethod;
+        user.loginId = loginMethod.normalize(loginId);
         user.role = role;
         user.phoneNumber = phone;
         user.email = email;
@@ -102,9 +104,10 @@ public class AppRepository implements Repository {
         return Optional.ofNullable(users.get(id));
     }
 
-    public synchronized Optional<User> findUserByUsername(String username) {
+    public synchronized Optional<User> findUserByLogin(LoginMethod loginMethod, String loginId) {
+        String normalized = loginMethod.normalize(loginId);
         return users.values().stream()
-                .filter(user -> user.username.equalsIgnoreCase(username))
+                .filter(user -> user.loginMethod == loginMethod && normalized.equals(user.loginId))
                 .findFirst();
     }
 
@@ -321,10 +324,14 @@ public class AppRepository implements Repository {
     }
 
     private void seed() {
-        User superAdmin = createUser("super", "admin123", RoleType.SUPER_ADMIN, "13800000001", "super@ptagent.local", true);
-        User admin = createUser("admin", "admin123", RoleType.ADMIN, "13800000002", "admin@ptagent.local", true);
-        User teacherLi = createUser("teacher", "teacher123", RoleType.TEACHER, "13800000003", "teacher@ptagent.local", true);
-        User teacherWang = createUser("wang", "teacher123", RoleType.TEACHER, "13800000004", "wang@ptagent.local", true);
+        User superAdmin = createUser("最高管理员", LoginMethod.WECHAT, "ptagent_super", RoleType.SUPER_ADMIN,
+                "13800000001", "super@ptagent.local", true);
+        User admin = createUser("运营管理员", LoginMethod.QQ, "10001001", RoleType.ADMIN,
+                "13800000002", "admin@ptagent.local", true);
+        User teacherLi = createUser("李明", LoginMethod.PHONE, "13800000003", RoleType.TEACHER,
+                "13800000003", "teacher@ptagent.local", true);
+        User teacherWang = createUser("王芳", LoginMethod.WECHAT, "wangfang_edu", RoleType.TEACHER,
+                "13800000004", "wang@ptagent.local", true);
 
         TeacherProfile li = new TeacherProfile();
         li.teacherId = teacherLi.id;
